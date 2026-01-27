@@ -1,0 +1,243 @@
+---
+title: "Getting Started with paneffectR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with paneffectR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Introduction
+
+paneffectR is a package for comparing proteins across multiple genome assemblies. It's designed to work with effector protein predictions from the omnieff pipeline, but can be used with any protein FASTA files.
+
+This vignette demonstrates the core data loading functionality.
+
+## Setup
+
+```{r setup}
+library(paneffectR)
+```
+
+## Loading Data
+
+### The Easy Way: `load_proteins()`
+The main entry point is `load_proteins()`, which discovers and loads all FASTA files from a directory:
+
+```{r load-all}
+# Get path to test data included with the package
+testdata_dir <- system.file("testdata", package = "paneffectR")
+
+# Load all assemblies
+proteins <- load_proteins(testdata_dir, pattern = "*.faa")
+proteins
+```
+
+The result is a `protein_collection` containing all assemblies. You can see:
+- How many assemblies were loaded
+- How many proteins in each
+- Whether scores are present
+
+### Loading with Scores
+
+If you have effector prediction scores (from omnieff), you can load them too:
+
+```{r load-with-scores}
+proteins_scored <- load_proteins(
+  fasta_dir = testdata_dir,
+  score_dir = testdata_dir,  # scores are in the same directory
+  pattern = "*.faa"
+)
+proteins_scored
+```
+Notice that `has_scores` is now `TRUE` for all assemblies.
+
+### Loading a Single Assembly
+
+You can also load just one assembly by specifying the exact filename:
+
+```{r load-single}
+single <- load_proteins(testdata_dir, pattern = "assembly1.faa")
+single
+```
+
+## Exploring the Data
+
+### The `protein_collection` Object
+
+A `protein_collection` has three main components:
+
+```{r explore-collection}
+# Number of assemblies
+proteins_scored$n_assemblies
+
+# Summary table
+proteins_scored$summary
+
+# Access individual assemblies (by name)
+names(proteins_scored$assemblies)
+```
+
+### The `protein_set` Object
+
+Each assembly is stored as a `protein_set`:
+
+```{r explore-protein-set}
+# Get first assembly
+ps <- proteins_scored$assemblies[["assembly1"]]
+ps
+
+# Assembly name
+ps$assembly_name
+
+# The proteins tibble
+head(ps$proteins)
+
+# See what columns are available (when scores are loaded)
+names(ps$proteins)
+```
+
+### Working with the Proteins
+
+The proteins are stored as a tibble, so you can use tidyverse tools:
+
+```{r tidyverse-example}
+library(dplyr)
+
+# Get top 10 highest-scoring proteins
+ps$proteins %>%
+  arrange(score_rank) %>%
+  select(protein_id, custom_score, score_rank) %>%
+  head(10)
+```
+
+### Combining Data Across Assemblies
+
+To get all proteins from all assemblies in one tibble:
+
+```{r combine-all}
+all_proteins <- purrr::map_dfr(
+  proteins_scored$assemblies,
+  ~ .x$proteins,
+  .id = "assembly"
+)
+
+# Summary by assembly
+all_proteins %>%
+  group_by(assembly) %>%
+  summarise(
+    n_proteins = n(),
+    mean_score = mean(custom_score, na.rm = TRUE),
+    max_score = max(custom_score, na.rm = TRUE)
+  )
+```
+
+## Lower-Level Functions
+
+If you need more control, you can use the individual loading functions:
+
+### `load_fasta()`
+
+Load a single FASTA file:
+
+```{r load-fasta}
+fasta_path <- file.path(testdata_dir, "assembly1.faa")
+fasta_data <- load_fasta(fasta_path)
+head(fasta_data)
+```
+
+### `load_scores()`
+
+Load a scored CSV from omnieff:
+
+```{r load-scores}
+scores_path <- file.path(testdata_dir, "assembly1_scored.csv")
+scores_data <- load_scores(scores_path)
+
+# Many columns of predictions
+dim(scores_data)
+names(scores_data)[1:10]  # First 10 columns
+```
+
+### `load_name_mapping()`
+
+Load the name mapping that shows original contig names:
+
+```{r load-mapping}
+mapping_path <- file.path(testdata_dir, "assembly1_name_mapping.csv")
+mapping_data <- load_name_mapping(mapping_path)
+head(mapping_data)
+```
+
+## Creating Objects Manually
+
+You can also create `protein_set` and `protein_collection` objects directly:
+
+```{r manual-creation}
+# Create a protein_set from scratch
+my_proteins <- tibble::tibble(
+  protein_id = c("my_prot_001", "my_prot_002", "my_prot_003"),
+  sequence = c("MAAAAVVVV", "MVVVVAAAA", "MKKKKLLLL")
+)
+
+my_set <- new_protein_set(
+  assembly_name = "my_assembly",
+  proteins = my_proteins,
+  metadata = list(species = "Example species", date = "2024-01-01")
+)
+my_set
+
+# Combine multiple protein_sets into a collection
+another_set <- new_protein_set(
+  assembly_name = "another_assembly",
+  proteins = tibble::tibble(
+    protein_id = c("other_001", "other_002"),
+    sequence = c("MGGGG", "MHHHH")
+  )
+)
+
+my_collection <- new_protein_collection(list(my_set, another_set))
+my_collection
+```
+
+## Validation
+
+The package validates your data to prevent common errors:
+
+```{r validation-errors, error=TRUE}
+# Duplicate protein IDs within an assembly - ERROR
+bad_proteins <- tibble::tibble(
+  protein_id = c("prot1", "prot1"),  # duplicate!
+  sequence = c("MAAAA", "MVVVV")
+)
+try(new_protein_set("test", bad_proteins))
+
+# Duplicate protein IDs across assemblies - ERROR
+set1 <- new_protein_set("asm1", tibble::tibble(protein_id = "shared_id", sequence = "M"))
+set2 <- new_protein_set("asm2", tibble::tibble(protein_id = "shared_id", sequence = "M"))
+try(new_protein_collection(list(set1, set2)))
+
+# Duplicate assembly names - ERROR
+set3 <- new_protein_set("same_name", tibble::tibble(protein_id = "p1", sequence = "M"))
+set4 <- new_protein_set("same_name", tibble::tibble(protein_id = "p2", sequence = "M"))
+try(new_protein_collection(list(set3, set4)))
+```
+
+This ensures that protein IDs are globally unique across your entire collection, which is essential for the clustering step in the next phase.
+
+## Next Steps
+
+Once you have your proteins loaded, the next steps (coming in future phases) are:
+
+1. **Clustering**: Group proteins into orthogroups using DIAMOND, OrthoFinder, or MMseqs2
+2. **Matrix building**: Create presence/absence matrices filtered by effector scores
+3. **Visualization**: Generate heatmaps, UpSet plots, and dendrograms
+
+Stay tuned!
