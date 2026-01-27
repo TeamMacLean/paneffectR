@@ -22,12 +22,60 @@ new_protein_set <- function(assembly_name,
                             proteins,
                             metadata = list(),
                             source_files = list()) {
-  cli::cli_abort("Not implemented")
+  # Validate assembly_name
+  if (!is.character(assembly_name) || length(assembly_name) != 1 || nchar(assembly_name) == 0) {
+    cli::cli_abort("{.arg assembly_name} must be a single non-empty character string")
+  }
+
+ # Validate proteins is a tibble with required columns
+  if (!tibble::is_tibble(proteins)) {
+    cli::cli_abort("{.arg proteins} must be a tibble")
+  }
+
+  required_cols <- c("protein_id", "sequence")
+  missing_cols <- setdiff(required_cols, names(proteins))
+  if (length(missing_cols) > 0) {
+    cli::cli_abort("{.arg proteins} must have columns: {.val {required_cols}}")
+  }
+
+  # Validate protein_id uniqueness
+  if (anyDuplicated(proteins$protein_id)) {
+    cli::cli_abort("Duplicate protein IDs found in {.arg proteins}")
+  }
+
+  # Validate metadata and source_files are lists
+  if (!is.list(metadata)) {
+    cli::cli_abort("{.arg metadata} must be a list")
+  }
+  if (!is.list(source_files)) {
+    cli::cli_abort("{.arg source_files} must be a list")
+  }
+
+  # Construct object
+  structure(
+    list(
+      assembly_name = assembly_name,
+      proteins = proteins,
+      metadata = metadata,
+      source_files = source_files
+    ),
+    class = "protein_set"
+  )
 }
 
 #' @export
 print.protein_set <- function(x, ...) {
-  cli::cli_abort("Not implemented")
+  n_proteins <- nrow(x$proteins)
+  has_scores <- "custom_score" %in% names(x$proteins)
+
+  cat("-- protein_set:", x$assembly_name, "--\n")
+  cat(n_proteins, " protein", if (n_proteins != 1) "s", "\n", sep = "")
+
+  if (has_scores) {
+    cat("Scores: present\n")
+  }
+
+  invisible(x)
 }
 
 # protein_collection class -------------------------------------------------
@@ -41,15 +89,74 @@ print.protein_set <- function(x, ...) {
 #' @return A `protein_collection` S3 object.
 #' @export
 new_protein_collection <- function(assemblies) {
-  cli::cli_abort("Not implemented")
+  # Validate input is a non-empty list
+  if (!is.list(assemblies) || length(assemblies) == 0) {
+    cli::cli_abort("{.arg assemblies} must be a non-empty list")
+  }
+
+  # Validate all items are protein_set objects
+  for (i in seq_along(assemblies)) {
+    if (!inherits(assemblies[[i]], "protein_set")) {
+      cli::cli_abort("Item {i} in {.arg assemblies} is not a {.cls protein_set}")
+    }
+  }
+
+  # Extract assembly names
+  assembly_names <- vapply(assemblies, function(x) x$assembly_name, character(1))
+
+  # Check for duplicate assembly names
+  if (anyDuplicated(assembly_names)) {
+    dups <- assembly_names[duplicated(assembly_names)]
+    cli::cli_abort("Duplicate assembly names: {.val {unique(dups)}}")
+  }
+
+  # Check for globally unique protein_ids
+  all_protein_ids <- unlist(lapply(assemblies, function(x) x$proteins$protein_id))
+  if (anyDuplicated(all_protein_ids)) {
+    dups <- all_protein_ids[duplicated(all_protein_ids)]
+    cli::cli_abort("Duplicate protein IDs across assemblies: {.val {head(unique(dups), 5)}}")
+  }
+
+  # Name the list by assembly names
+  names(assemblies) <- assembly_names
+
+  # Compute summary
+  summary_df <- tibble::tibble(
+    assembly_name = assembly_names,
+    n_proteins = vapply(assemblies, function(x) nrow(x$proteins), integer(1)),
+    has_scores = vapply(assemblies, function(x) "custom_score" %in% names(x$proteins), logical(1))
+  )
+
+  # Construct object
+  structure(
+    list(
+      assemblies = assemblies,
+      n_assemblies = length(assemblies),
+      summary = summary_df
+    ),
+    class = "protein_collection"
+  )
 }
 
 #' @export
 print.protein_collection <- function(x, ...) {
-  cli::cli_abort("Not implemented")
+  total_proteins <- sum(x$summary$n_proteins)
+  n_asm <- x$n_assemblies
+
+  cat("-- protein_collection --\n")
+  cat(n_asm, " assembl", if (n_asm == 1) "y" else "ies",
+      ", ", total_proteins, " total protein",
+      if (total_proteins != 1) "s", "\n", sep = "")
+  cat("\n")
+
+  # Print summary table
+  print(x$summary, n = min(10, nrow(x$summary)))
+
+  invisible(x)
 }
 
 # orthogroup_result class --------------------------------------------------
+
 #' Create an orthogroup_result object
 #'
 #' Result of clustering proteins across assemblies.
@@ -67,12 +174,12 @@ new_orthogroup_result <- function(orthogroups,
                                   parameters = list(),
                                   singletons = NULL,
                                   stats = NULL) {
-  cli::cli_abort("Not implemented")
+  cli::cli_abort("orthogroup_result is not yet implemented (Phase 2)")
 }
 
 #' @export
 print.orthogroup_result <- function(x, ...) {
-  cli::cli_abort("Not implemented")
+  cli::cli_abort("orthogroup_result is not yet implemented (Phase 2)")
 }
 
 # pa_matrix class ----------------------------------------------------------
@@ -94,10 +201,10 @@ new_pa_matrix <- function(matrix,
                           assemblies,
                           type = "binary",
                           threshold = NULL) {
-  cli::cli_abort("Not implemented")
+  cli::cli_abort("pa_matrix is not yet implemented (Phase 3)")
 }
 
 #' @export
 print.pa_matrix <- function(x, ...) {
-  cli::cli_abort("Not implemented")
+  cli::cli_abort("pa_matrix is not yet implemented (Phase 3)")
 }
