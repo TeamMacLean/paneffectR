@@ -1,0 +1,30 @@
+# R package ignores
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+
+# renv
+renv/library/
+renv/staging/
+renv/sandbox/
+
+# Build artifacts
+*.tar.gz
+*.Rcheck/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local/working files
+.Rprofile
+sample_data/
+next_session.md
+semi-autonomous-feature-development.md
+similar_CLAUDE.md

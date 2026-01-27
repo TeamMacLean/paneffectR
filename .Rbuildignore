@@ -1,0 +1,15 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^LICENSE\.md$
+^README\.Rmd$
+^\.github$
+^renv$
+^renv\.lock$
+^CLAUDE\.md$
+^sample_data$
+^phase_.*\.md$
+^\.claude$
+^\.idea$
+^next_session\.md$
+^semi-autonomous-feature-development\.md$
+^similar_CLAUDE\.md$
