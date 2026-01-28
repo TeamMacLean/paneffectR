@@ -402,3 +402,106 @@ run_diamond_rbh <- function(proteins,
     singletons = singletons
   )
 }
+
+# Main Dispatcher Function --------------------------------------------------
+
+#' Cluster proteins across assemblies
+#'
+#' Groups proteins from a protein_collection into orthogroups using
+#' sequence similarity. Multiple clustering methods are available.
+#'
+#' @param proteins A protein_collection object
+#' @param method Clustering method: "diamond_rbh" (default), "orthofinder", or "mmseqs2"
+#' @param mode Speed/sensitivity trade-off: "fast" (default) or "thorough"
+#' @param min_identity Minimum percent identity threshold (default 30)
+#' @param min_coverage Minimum query coverage threshold (default 50)
+#' @param evalue E-value threshold (default 1e-5)
+#' @param threads Number of CPU threads (default: auto-detect)
+#' @param tool_path Optional explicit path to the clustering tool binary
+#' @param conda_env Optional path to conda/mamba environment containing the tool
+#' @param keep_temp Keep temporary files for debugging (default FALSE)
+#'
+#' @return An orthogroup_result object containing:
+#'   - orthogroups: tibble with orthogroup_id, assembly, protein_id
+#'   - method: the clustering method used
+#'   - parameters: list of parameters used
+#'   - singletons: proteins not assigned to any orthogroup
+#'
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' # Load proteins
+#' proteins <- load_proteins(fasta_dir = "assemblies/")
+#'
+#' # Cluster with default settings (DIAMOND RBH)
+#' result <- cluster_proteins(proteins)
+#'
+#' # Use thorough mode with stricter thresholds
+#' result <- cluster_proteins(
+#'   proteins,
+#'   mode = "thorough",
+#'   min_identity = 70,
+#'   min_coverage = 80
+#' )
+#'
+#' # Use a conda environment
+#' result <- cluster_proteins(
+#'   proteins,
+#'   conda_env = "./this_project_env"
+#' )
+#' }
+cluster_proteins <- function(proteins,
+                             method = "diamond_rbh",
+                             mode = "fast",
+                             min_identity = 30,
+                             min_coverage = 50,
+                             evalue = 1e-5,
+                             threads = NULL,
+                             tool_path = NULL,
+                             conda_env = NULL,
+                             keep_temp = FALSE) {
+  # Validate proteins argument
+ if (!inherits(proteins, "protein_collection")) {
+    cli::cli_abort("{.arg proteins} must be a {.cls protein_collection} object")
+  }
+
+  # Validate method
+  valid_methods <- c("diamond_rbh", "orthofinder", "mmseqs2")
+  if (!method %in% valid_methods) {
+    cli::cli_abort(
+      "{.arg method} must be one of: {.val {valid_methods}}"
+    )
+  }
+
+  # Validate mode
+  valid_modes <- c("fast", "thorough")
+  if (!mode %in% valid_modes) {
+    cli::cli_abort(
+      "{.arg mode} must be one of: {.val {valid_modes}}"
+    )
+  }
+
+  # Build tool_path from conda_env if provided
+  if (!is.null(conda_env) && is.null(tool_path)) {
+    tool_path <- file.path(conda_env, "bin", "diamond")
+  }
+
+  # Dispatch to appropriate method
+  if (method == "diamond_rbh") {
+    run_diamond_rbh(
+      proteins = proteins,
+      min_identity = min_identity,
+      min_coverage = min_coverage,
+      evalue = evalue,
+      threads = threads,
+      mode = mode,
+      tool_path = tool_path,
+      keep_temp = keep_temp
+    )
+  } else if (method == "orthofinder") {
+    cli::cli_abort("Method {.val orthofinder} is not yet implemented")
+  } else if (method == "mmseqs2") {
+    cli::cli_abort("Method {.val mmseqs2} is not yet implemented")
+  }
+}
