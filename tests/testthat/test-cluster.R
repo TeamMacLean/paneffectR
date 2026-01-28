@@ -329,12 +329,22 @@ test_that("parse_diamond_hits handles empty file", {
 
 # run_diamond_rbh integration tests -----------------------------------------
 
+# Helper to find diamond in project-local env (works from test directory)
+get_diamond_path <- function() {
+  # Try project-local path (from tests/testthat directory)
+  local_path <- test_path("../../this_project_env/bin/diamond")
+  if (file.exists(local_path)) return(local_path)
+
+  # Try system PATH
+  sys_path <- Sys.which("diamond")
+  if (nzchar(sys_path)) return(sys_path)
+
+  NULL
+}
+
 test_that("run_diamond_rbh returns orthogroup_result", {
-  skip_if_not(
-    file.exists("./this_project_env/bin/diamond") ||
-      nzchar(Sys.which("diamond")),
-    "DIAMOND not installed"
-  )
+  diamond_path <- get_diamond_path()
+  skip_if(is.null(diamond_path), "DIAMOND not installed")
 
   # Create test protein_collection with some identical sequences
   ps1 <- new_protein_set("asm1", tibble::tibble(
@@ -359,8 +369,7 @@ test_that("run_diamond_rbh returns orthogroup_result", {
     min_identity = 90,
     min_coverage = 80,
     evalue = 1e-5,
-    tool_path = if (file.exists("./this_project_env/bin/diamond"))
-      "./this_project_env/bin/diamond" else NULL
+    tool_path = diamond_path
   )
 
   expect_s3_class(result, "orthogroup_result")
@@ -368,11 +377,8 @@ test_that("run_diamond_rbh returns orthogroup_result", {
 })
 
 test_that("run_diamond_rbh clusters identical sequences", {
-  skip_if_not(
-    file.exists("./this_project_env/bin/diamond") ||
-      nzchar(Sys.which("diamond")),
-    "DIAMOND not installed"
-  )
+  diamond_path <- get_diamond_path()
+  skip_if(is.null(diamond_path), "DIAMOND not installed")
 
   # Two assemblies with one identical protein each
   ps1 <- new_protein_set("asm1", tibble::tibble(
@@ -390,8 +396,7 @@ test_that("run_diamond_rbh clusters identical sequences", {
     min_identity = 90,
     min_coverage = 80,
     evalue = 1e-5,
-    tool_path = if (file.exists("./this_project_env/bin/diamond"))
-      "./this_project_env/bin/diamond" else NULL
+    tool_path = diamond_path
   )
 
   # Both proteins should be in the same orthogroup
@@ -401,11 +406,8 @@ test_that("run_diamond_rbh clusters identical sequences", {
 })
 
 test_that("run_diamond_rbh identifies singletons", {
-  skip_if_not(
-    file.exists("./this_project_env/bin/diamond") ||
-      nzchar(Sys.which("diamond")),
-    "DIAMOND not installed"
-  )
+  diamond_path <- get_diamond_path()
+  skip_if(is.null(diamond_path), "DIAMOND not installed")
 
   # Two very different proteins - should not cluster
   ps1 <- new_protein_set("asm1", tibble::tibble(
@@ -423,8 +425,7 @@ test_that("run_diamond_rbh identifies singletons", {
     min_identity = 90,
     min_coverage = 80,
     evalue = 1e-5,
-    tool_path = if (file.exists("./this_project_env/bin/diamond"))
-      "./this_project_env/bin/diamond" else NULL
+    tool_path = diamond_path
   )
 
   # Should have singletons (proteins not in any orthogroup)

@@ -6,33 +6,37 @@
 \usage{
 run_diamond_rbh(
   proteins,
-  mode = "fast",
-  min_identity = 70,
+  min_identity = 30,
   min_coverage = 50,
+  evalue = 1e-05,
   threads = NULL,
+  mode = "fast",
   tool_path = NULL,
-  conda_env = NULL
+  keep_temp = FALSE
 )
 }
 \arguments{
-\item{proteins}{A \code{protein_collection} object.}
+\item{proteins}{A protein_collection object}
 
-\item{mode}{Character. "fast" or "thorough".}
+\item{min_identity}{Minimum percent identity (default 30)}
 
-\item{min_identity}{Numeric. Minimum sequence identity percent.}
+\item{min_coverage}{Minimum query coverage (default 50)}
 
-\item{min_coverage}{Numeric. Minimum query coverage percent.}
+\item{evalue}{E-value threshold (default 1e-5)}
 
-\item{threads}{Integer. Number of CPU threads.}
+\item{threads}{Number of threads (default: auto-detect)}
 
-\item{tool_path}{Character. Optional explicit path to diamond.}
+\item{mode}{"fast" or "thorough" (default "fast")}
 
-\item{conda_env}{Character. Optional conda environment.}
+\item{tool_path}{Optional explicit path to diamond binary}
+
+\item{keep_temp}{Keep temporary files for debugging (default FALSE)}
 }
 \value{
-An \code{orthogroup_result} object.
+An orthogroup_result object
 }
 \description{
-Run DIAMOND reciprocal best hits clustering
+Performs all-vs-all DIAMOND blastp search and identifies reciprocal
+best hits to build orthogroups.
 }
 \keyword{internal}
