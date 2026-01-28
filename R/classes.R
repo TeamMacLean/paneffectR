@@ -174,12 +174,82 @@ new_orthogroup_result <- function(orthogroups,
                                   parameters = list(),
                                   singletons = NULL,
                                   stats = NULL) {
-  cli::cli_abort("orthogroup_result is not yet implemented (Phase 2)")
+  # Validate orthogroups is a tibble
+
+  if (!tibble::is_tibble(orthogroups)) {
+    cli::cli_abort("{.arg orthogroups} must be a tibble")
+  }
+
+  # Validate required columns in orthogroups
+ required_cols <- c("orthogroup_id", "assembly", "protein_id")
+  missing_cols <- setdiff(required_cols, names(orthogroups))
+  if (length(missing_cols) > 0) {
+    cli::cli_abort("{.arg orthogroups} must have columns: {.val {missing_cols}}")
+  }
+
+  # Validate method is single character string
+  if (!is.character(method) || length(method) != 1) {
+    cli::cli_abort("{.arg method} must be a single character string")
+  }
+
+  # Validate parameters is list
+  if (!is.list(parameters)) {
+    cli::cli_abort("{.arg parameters} must be a list")
+  }
+
+  # Validate singletons if provided
+  if (!is.null(singletons)) {
+    if (!tibble::is_tibble(singletons)) {
+      cli::cli_abort("{.arg singletons} must be a tibble")
+    }
+    singleton_required <- c("assembly", "protein_id")
+    singleton_missing <- setdiff(singleton_required, names(singletons))
+    if (length(singleton_missing) > 0) {
+      cli::cli_abort("{.arg singletons} must have columns: {.val {singleton_required}}")
+    }
+  }
+
+  # Auto-compute stats if not provided
+  if (is.null(stats)) {
+    n_orthogroups <- length(unique(orthogroups$orthogroup_id))
+    n_singletons <- if (is.null(singletons)) 0L else nrow(singletons)
+    n_proteins_clustered <- nrow(orthogroups)
+    n_assemblies <- length(unique(orthogroups$assembly))
+
+    stats <- tibble::tibble(
+      n_orthogroups = n_orthogroups,
+      n_singletons = n_singletons,
+      n_proteins_clustered = n_proteins_clustered,
+      n_assemblies = n_assemblies
+    )
+  }
+
+  # Construct object
+  structure(
+    list(
+      orthogroups = orthogroups,
+      method = method,
+      parameters = parameters,
+      singletons = singletons,
+      stats = stats
+    ),
+    class = "orthogroup_result"
+  )
 }
 
 #' @export
 print.orthogroup_result <- function(x, ...) {
-  cli::cli_abort("orthogroup_result is not yet implemented (Phase 2)")
+  n_og <- x$stats$n_orthogroups
+  n_sing <- x$stats$n_singletons
+
+  cat("-- orthogroup_result (", x$method, ") --\n", sep = "")
+  cat(n_og, " orthogroup", if (n_og != 1) "s", "\n", sep = "")
+
+  if (n_sing > 0) {
+    cat(n_sing, " singleton", if (n_sing != 1) "s", "\n", sep = "")
+  }
+
+  invisible(x)
 }
 
 # pa_matrix class ----------------------------------------------------------
