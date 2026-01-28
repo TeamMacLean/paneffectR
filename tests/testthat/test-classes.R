@@ -107,11 +107,185 @@ test_that("print.protein_collection produces output", {
   expect_output(print(pc), "1 assembl")
 })
 
-# orthogroup_result and pa_matrix stubs ------------------------------------
+# orthogroup_result tests ---------------------------------------------------
 
-test_that("new_orthogroup_result is not yet implemented", {
-  expect_error(new_orthogroup_result(NULL, "diamond_rbh"), "not yet implemented")
+test_that("new_orthogroup_result creates valid object", {
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0001", "OG0002", "OG0002"),
+    assembly = c("a1", "a2", "a1", "a2"),
+    protein_id = c("a1_p1", "a2_p1", "a1_p2", "a2_p2")
+  )
+
+  result <- new_orthogroup_result(orthogroups, method = "diamond_rbh")
+  expect_s3_class(result, "orthogroup_result")
 })
+
+test_that("new_orthogroup_result stores all components", {
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0001"),
+    assembly = c("a1", "a2"),
+    protein_id = c("a1_p1", "a2_p1")
+  )
+  singletons <- tibble::tibble(
+    assembly = "a1",
+    protein_id = "a1_p99"
+  )
+  params <- list(min_identity = 70, min_coverage = 50)
+
+  result <- new_orthogroup_result(
+    orthogroups,
+    method = "diamond_rbh",
+    parameters = params,
+    singletons = singletons
+  )
+
+  expect_equal(result$orthogroups, orthogroups)
+  expect_equal(result$method, "diamond_rbh")
+  expect_equal(result$parameters, params)
+  expect_equal(result$singletons, singletons)
+})
+
+test_that("new_orthogroup_result validates orthogroups is tibble", {
+  expect_error(new_orthogroup_result(NULL, "test"))
+  expect_error(new_orthogroup_result(data.frame(x = 1), "test"))
+  expect_error(new_orthogroup_result("not a tibble", "test"))
+})
+test_that("new_orthogroup_result validates required columns", {
+  # Missing orthogroup_id
+  bad1 <- tibble::tibble(assembly = "a1", protein_id = "p1")
+  expect_error(new_orthogroup_result(bad1, "test"), "orthogroup_id")
+
+  # Missing assembly
+  bad2 <- tibble::tibble(orthogroup_id = "OG1", protein_id = "p1")
+  expect_error(new_orthogroup_result(bad2, "test"), "assembly")
+
+  # Missing protein_id
+  bad3 <- tibble::tibble(orthogroup_id = "OG1", assembly = "a1")
+  expect_error(new_orthogroup_result(bad3, "test"), "protein_id")
+})
+
+test_that("new_orthogroup_result validates method is character", {
+  orthogroups <- tibble::tibble(
+    orthogroup_id = "OG1",
+    assembly = "a1",
+    protein_id = "p1"
+  )
+  expect_error(new_orthogroup_result(orthogroups, method = NULL))
+  expect_error(new_orthogroup_result(orthogroups, method = 123))
+  expect_error(new_orthogroup_result(orthogroups, method = c("a", "b")))
+})
+
+test_that("new_orthogroup_result validates parameters is list", {
+  orthogroups <- tibble::tibble(
+    orthogroup_id = "OG1",
+    assembly = "a1",
+    protein_id = "p1"
+  )
+  expect_error(new_orthogroup_result(orthogroups, "test", parameters = "not a list"))
+})
+
+test_that("new_orthogroup_result validates singletons if provided", {
+  orthogroups <- tibble::tibble(
+    orthogroup_id = "OG1",
+    assembly = "a1",
+    protein_id = "p1"
+  )
+  # Not a tibble
+  expect_error(new_orthogroup_result(orthogroups, "test", singletons = "bad"))
+
+  # Missing required columns
+  bad_singletons <- tibble::tibble(x = 1)
+  expect_error(new_orthogroup_result(orthogroups, "test", singletons = bad_singletons))
+})
+
+test_that("new_orthogroup_result computes stats automatically", {
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0001", "OG0001", "OG0002", "OG0002"),
+    assembly = c("a1", "a2", "a3", "a1", "a2"),
+    protein_id = c("a1_p1", "a2_p1", "a3_p1", "a1_p2", "a2_p2")
+  )
+  singletons <- tibble::tibble(
+    assembly = c("a3", "a3"),
+    protein_id = c("a3_p2", "a3_p3")
+  )
+
+  result <- new_orthogroup_result(orthogroups, "test", singletons = singletons)
+
+  expect_true("stats" %in% names(result))
+  expect_s3_class(result$stats, "tbl_df")
+
+  # Should have n_orthogroups
+  expect_true("n_orthogroups" %in% names(result$stats))
+  expect_equal(result$stats$n_orthogroups, 2)
+
+  # Should have n_singletons
+  expect_true("n_singletons" %in% names(result$stats))
+  expect_equal(result$stats$n_singletons, 2)
+
+  # Should have n_proteins_clustered
+  expect_true("n_proteins_clustered" %in% names(result$stats))
+  expect_equal(result$stats$n_proteins_clustered, 5)
+
+  # Should have n_assemblies
+  expect_true("n_assemblies" %in% names(result$stats))
+  expect_equal(result$stats$n_assemblies, 3)
+})
+
+test_that("new_orthogroup_result stats handles no singletons", {
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG1", "OG1"),
+    assembly = c("a1", "a2"),
+    protein_id = c("p1", "p2")
+  )
+  result <- new_orthogroup_result(orthogroups, "test")
+  expect_equal(result$stats$n_singletons, 0)
+})
+
+test_that("new_orthogroup_result allows user-provided stats", {
+ orthogroups <- tibble::tibble(
+    orthogroup_id = "OG1",
+    assembly = "a1",
+    protein_id = "p1"
+  )
+  custom_stats <- tibble::tibble(
+    n_orthogroups = 1L,
+    n_singletons = 0L,
+    n_proteins_clustered = 1L,
+    n_assemblies = 1L,
+    custom_field = "extra"
+  )
+  result <- new_orthogroup_result(orthogroups, "test", stats = custom_stats)
+  expect_equal(result$stats$custom_field, "extra")
+})
+
+test_that("print.orthogroup_result produces output", {
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0001", "OG0002"),
+    assembly = c("a1", "a2", "a1"),
+    protein_id = c("p1", "p2", "p3")
+  )
+  result <- new_orthogroup_result(orthogroups, "diamond_rbh")
+
+  expect_output(print(result), "orthogroup_result")
+  expect_output(print(result), "diamond_rbh")
+  expect_output(print(result), "2 orthogroup")
+})
+
+test_that("print.orthogroup_result shows singletons when present", {
+  orthogroups <- tibble::tibble(
+    orthogroup_id = "OG1",
+    assembly = "a1",
+    protein_id = "p1"
+  )
+  singletons <- tibble::tibble(
+    assembly = c("a1", "a2"),
+    protein_id = c("s1", "s2")
+  )
+  result <- new_orthogroup_result(orthogroups, "test", singletons = singletons)
+  expect_output(print(result), "2 singleton")
+})
+
+# pa_matrix stubs -----------------------------------------------------------
 
 test_that("new_pa_matrix is not yet implemented", {
   expect_error(new_pa_matrix(NULL, NULL, NULL), "not yet implemented")
