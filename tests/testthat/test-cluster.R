@@ -163,3 +163,271 @@ test_that("build_orthogroups_from_rbh generates sequential OG IDs", {
   # IDs should be like OG0001, OG0002, etc.
   expect_true(all(grepl("^OG\\d+$", result$orthogroup_id)))
 })
+
+# write_combined_fasta tests ------------------------------------------------
+# TODO: Currently uses protein_id as header. May need assembly prefix
+# if users have duplicate protein_ids across assemblies.
+
+test_that("write_combined_fasta writes all proteins", {
+  ps1 <- new_protein_set("asm1", tibble::tibble(
+    protein_id = c("asm1_001", "asm1_002"),
+    sequence = c("MAAAA", "MVVVV")
+  ))
+  ps2 <- new_protein_set("asm2", tibble::tibble(
+    protein_id = c("asm2_001"),
+    sequence = c("MGGGG")
+  ))
+  pc <- new_protein_collection(list(ps1, ps2))
+
+  tmp <- tempfile(fileext = ".faa")
+  on.exit(unlink(tmp))
+
+  write_combined_fasta(pc, tmp)
+
+  expect_true(file.exists(tmp))
+  lines <- readLines(tmp)
+
+  # Should have 3 proteins (6 lines: 3 headers + 3 sequences)
+  headers <- grep("^>", lines, value = TRUE)
+  expect_equal(length(headers), 3)
+
+  # All protein IDs should be present in headers
+  expect_true(any(grepl("asm1_001", headers)))
+  expect_true(any(grepl("asm1_002", headers)))
+  expect_true(any(grepl("asm2_001", headers)))
+})
+
+test_that("write_combined_fasta writes correct sequences", {
+  ps <- new_protein_set("asm1", tibble::tibble(
+    protein_id = c("p1", "p2"),
+    sequence = c("MTEST", "MFOO")
+  ))
+  pc <- new_protein_collection(list(ps))
+
+  tmp <- tempfile(fileext = ".faa")
+  on.exit(unlink(tmp))
+
+  write_combined_fasta(pc, tmp)
+
+  lines <- readLines(tmp)
+  expect_true("MTEST" %in% lines)
+  expect_true("MFOO" %in% lines)
+})
+
+test_that("write_combined_fasta handles single assembly", {
+  ps <- new_protein_set("asm1", tibble::tibble(
+    protein_id = "p1",
+    sequence = "MTEST"
+  ))
+  pc <- new_protein_collection(list(ps))
+
+  tmp <- tempfile(fileext = ".faa")
+  on.exit(unlink(tmp))
+
+  write_combined_fasta(pc, tmp)
+
+  lines <- readLines(tmp)
+  expect_equal(length(grep("^>", lines)), 1)
+  expect_true("MTEST" %in% lines)
+})
+
+# parse_diamond_hits tests --------------------------------------------------
+# DIAMOND output format: qseqid sseqid pident length qlen evalue bitscore
+# Coverage is computed as (length / qlen) * 100
+
+test_that("parse_diamond_hits reads tabular format", {
+  tmp <- tempfile()
+  on.exit(unlink(tmp))
+
+  # Format: qseqid sseqid pident length qlen evalue bitscore
+  writeLines(c(
+    "A_001\tB_001\t95.5\t90\t100\t1e-50\t200",
+    "A_001\tB_002\t80.0\t85\t100\t1e-30\t150",
+    "B_001\tA_001\t95.5\t90\t100\t1e-50\t200"
+  ), tmp)
+
+  hits <- parse_diamond_hits(tmp, min_identity = 70, min_coverage = 50, evalue = 1e-5)
+
+  expect_s3_class(hits, "tbl_df")
+  expect_true(all(c("qseqid", "sseqid", "pident", "length", "qlen", "evalue", "bitscore", "qcov") %in% names(hits)))
+  expect_equal(nrow(hits), 3)
+})
+
+test_that("parse_diamond_hits computes coverage correctly", {
+  tmp <- tempfile()
+  on.exit(unlink(tmp))
+
+  # length=80, qlen=100 -> coverage = 80%
+  writeLines("A_001\tB_001\t95.0\t80\t100\t1e-50\t200", tmp)
+
+  hits <- parse_diamond_hits(tmp, min_identity = 0, min_coverage = 0, evalue = 1)
+
+  expect_equal(hits$qcov[1], 80)
+})
+
+test_that("parse_diamond_hits filters by identity", {
+  tmp <- tempfile()
+  on.exit(unlink(tmp))
+
+  writeLines(c(
+    "A_001\tB_001\t95.0\t90\t100\t1e-50\t200",
+    "A_002\tB_002\t60.0\t90\t100\t1e-50\t150"
+  ), tmp)
+
+  hits <- parse_diamond_hits(tmp, min_identity = 70, min_coverage = 50, evalue = 1e-5)
+
+  # Only the 95% identity hit should pass
+  expect_equal(nrow(hits), 1)
+  expect_equal(hits$qseqid[1], "A_001")
+})
+
+test_that("parse_diamond_hits filters by coverage", {
+  tmp <- tempfile()
+  on.exit(unlink(tmp))
+
+  # First: length=90, qlen=100 -> 90% coverage (passes)
+  # Second: length=30, qlen=100 -> 30% coverage (fails)
+  writeLines(c(
+    "A_001\tB_001\t95.0\t90\t100\t1e-50\t200",
+    "A_002\tB_002\t95.0\t30\t100\t1e-50\t150"
+  ), tmp)
+
+  hits <- parse_diamond_hits(tmp, min_identity = 70, min_coverage = 50, evalue = 1e-5)
+
+  # Only the 90% coverage hit should pass
+  expect_equal(nrow(hits), 1)
+  expect_equal(hits$qseqid[1], "A_001")
+})
+
+test_that("parse_diamond_hits filters by evalue", {
+  tmp <- tempfile()
+  on.exit(unlink(tmp))
+
+  writeLines(c(
+    "A_001\tB_001\t95.0\t90\t100\t1e-50\t200",
+    "A_002\tB_002\t95.0\t90\t100\t0.1\t50"
+  ), tmp)
+
+  hits <- parse_diamond_hits(tmp, min_identity = 70, min_coverage = 50, evalue = 1e-5)
+
+  # Only the 1e-50 evalue hit should pass
+  expect_equal(nrow(hits), 1)
+  expect_equal(hits$qseqid[1], "A_001")
+})
+
+test_that("parse_diamond_hits handles empty file", {
+  tmp <- tempfile()
+  on.exit(unlink(tmp))
+  file.create(tmp)
+
+  hits <- parse_diamond_hits(tmp, min_identity = 70, min_coverage = 50, evalue = 1e-5)
+
+  expect_s3_class(hits, "tbl_df")
+  expect_equal(nrow(hits), 0)
+  expect_true(all(c("qseqid", "sseqid", "pident", "qcov", "evalue", "bitscore") %in% names(hits)))
+})
+
+# run_diamond_rbh integration tests -----------------------------------------
+
+test_that("run_diamond_rbh returns orthogroup_result", {
+  skip_if_not(
+    file.exists("./this_project_env/bin/diamond") ||
+      nzchar(Sys.which("diamond")),
+    "DIAMOND not installed"
+  )
+
+  # Create test protein_collection with some identical sequences
+  ps1 <- new_protein_set("asm1", tibble::tibble(
+    protein_id = c("asm1_001", "asm1_002"),
+    sequence = c(
+      "MKTIIALSYIFCLVFADYKNTDNEANEPSDPYIKKATSALTKSYTNSDKGKLIKAATTTAKQSGKY",
+      "MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHFDLSHGSAQVKGHGKKVAD"
+    )
+  ))
+  ps2 <- new_protein_set("asm2", tibble::tibble(
+    protein_id = c("asm2_001", "asm2_002"),
+    sequence = c(
+      # Same as asm1_001 - should cluster together
+      "MKTIIALSYIFCLVFADYKNTDNEANEPSDPYIKKATSALTKSYTNSDKGKLIKAATTTAKQSGKY",
+      "MGLSDGEWQQVLNVWGKVEADIAGHGQEVLIRLFTGHPETLEKFDKFKHLKTEAEMKASEDLKKHG"
+    )
+  ))
+  pc <- new_protein_collection(list(ps1, ps2))
+
+  result <- run_diamond_rbh(
+    pc,
+    min_identity = 90,
+    min_coverage = 80,
+    evalue = 1e-5,
+    tool_path = if (file.exists("./this_project_env/bin/diamond"))
+      "./this_project_env/bin/diamond" else NULL
+  )
+
+  expect_s3_class(result, "orthogroup_result")
+  expect_equal(result$method, "diamond_rbh")
+})
+
+test_that("run_diamond_rbh clusters identical sequences", {
+  skip_if_not(
+    file.exists("./this_project_env/bin/diamond") ||
+      nzchar(Sys.which("diamond")),
+    "DIAMOND not installed"
+  )
+
+  # Two assemblies with one identical protein each
+  ps1 <- new_protein_set("asm1", tibble::tibble(
+    protein_id = "asm1_001",
+    sequence = "MKTIIALSYIFCLVFADYKNTDNEANEPSDPYIKKATSALTKSYTNSDKGKLIKAATTTAKQSGKY"
+  ))
+  ps2 <- new_protein_set("asm2", tibble::tibble(
+    protein_id = "asm2_001",
+    sequence = "MKTIIALSYIFCLVFADYKNTDNEANEPSDPYIKKATSALTKSYTNSDKGKLIKAATTTAKQSGKY"
+  ))
+  pc <- new_protein_collection(list(ps1, ps2))
+
+  result <- run_diamond_rbh(
+    pc,
+    min_identity = 90,
+    min_coverage = 80,
+    evalue = 1e-5,
+    tool_path = if (file.exists("./this_project_env/bin/diamond"))
+      "./this_project_env/bin/diamond" else NULL
+  )
+
+  # Both proteins should be in the same orthogroup
+  og_data <- result$orthogroups
+  expect_equal(nrow(og_data), 2)
+  expect_equal(length(unique(og_data$orthogroup_id)), 1)
+})
+
+test_that("run_diamond_rbh identifies singletons", {
+  skip_if_not(
+    file.exists("./this_project_env/bin/diamond") ||
+      nzchar(Sys.which("diamond")),
+    "DIAMOND not installed"
+  )
+
+  # Two very different proteins - should not cluster
+  ps1 <- new_protein_set("asm1", tibble::tibble(
+    protein_id = "asm1_001",
+    sequence = "MKTIIALSYIFCLVFADYKNTDNEANEPSDPYIKKATSALTKSYTNSDKGKLIKAATTTAKQSGKY"
+  ))
+  ps2 <- new_protein_set("asm2", tibble::tibble(
+    protein_id = "asm2_001",
+    sequence = "MGLSDGEWQQVLNVWGKVEADIAGHGQEVLIRLFTGHPETLEKFDKFKHLKTEAEMKASEDLKKHG"
+  ))
+  pc <- new_protein_collection(list(ps1, ps2))
+
+  result <- run_diamond_rbh(
+    pc,
+    min_identity = 90,
+    min_coverage = 80,
+    evalue = 1e-5,
+    tool_path = if (file.exists("./this_project_env/bin/diamond"))
+      "./this_project_env/bin/diamond" else NULL
+  )
+
+  # Should have singletons (proteins not in any orthogroup)
+  expect_true(!is.null(result$singletons))
+  expect_equal(nrow(result$singletons), 2)
+})
