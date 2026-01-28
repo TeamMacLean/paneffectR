@@ -432,3 +432,164 @@ test_that("run_diamond_rbh identifies singletons", {
   expect_true(!is.null(result$singletons))
   expect_equal(nrow(result$singletons), 2)
 })
+
+# cluster_proteins() dispatcher tests ----------------------------------------
+
+test_that("cluster_proteins validates proteins argument", {
+  # Not a protein_collection
+
+  expect_error(
+    cluster_proteins("not a collection"),
+    "protein_collection"
+
+  )
+
+  expect_error(
+    cluster_proteins(list(a = 1, b = 2)),
+    "protein_collection"
+  )
+
+  expect_error(
+    cluster_proteins(NULL),
+    "protein_collection"
+  )
+})
+
+test_that("cluster_proteins validates method argument", {
+  ps <- new_protein_set("asm1", tibble::tibble(
+    protein_id = "p1",
+    sequence = "MTEST"
+  ))
+  pc <- new_protein_collection(list(ps))
+
+  expect_error(
+    cluster_proteins(pc, method = "invalid_method"),
+    "method"
+  )
+
+  expect_error(
+    cluster_proteins(pc, method = "blast"),
+    "method"
+  )
+})
+test_that("cluster_proteins validates mode argument", {
+  ps <- new_protein_set("asm1", tibble::tibble(
+    protein_id = "p1",
+    sequence = "MTEST"
+  ))
+  pc <- new_protein_collection(list(ps))
+
+  expect_error(
+    cluster_proteins(pc, mode = "invalid_mode"),
+    "mode"
+  )
+
+  expect_error(
+    cluster_proteins(pc, mode = "ultra"),
+    "mode"
+  )
+})
+
+test_that("cluster_proteins errors for unimplemented methods", {
+  ps <- new_protein_set("asm1", tibble::tibble(
+    protein_id = "p1",
+    sequence = "MTEST"
+  ))
+  pc <- new_protein_collection(list(ps))
+
+  expect_error(
+    cluster_proteins(pc, method = "orthofinder"),
+    "not yet implemented"
+  )
+
+  expect_error(
+    cluster_proteins(pc, method = "mmseqs2"),
+    "not yet implemented"
+  )
+})
+
+test_that("cluster_proteins dispatches to diamond_rbh", {
+  diamond_path <- get_diamond_path()
+  skip_if(is.null(diamond_path), "DIAMOND not installed")
+
+  ps1 <- new_protein_set("asm1", tibble::tibble(
+    protein_id = "asm1_001",
+    sequence = "MKTIIALSYIFCLVFADYKNTDNEANEPSDPYIKKATSALTKSYTNSDKGKLIKAATTTAKQSGKY"
+  ))
+  ps2 <- new_protein_set("asm2", tibble::tibble(
+    protein_id = "asm2_001",
+    sequence = "MKTIIALSYIFCLVFADYKNTDNEANEPSDPYIKKATSALTKSYTNSDKGKLIKAATTTAKQSGKY"
+  ))
+  pc <- new_protein_collection(list(ps1, ps2))
+
+  result <- cluster_proteins(
+    pc,
+    method = "diamond_rbh",
+    min_identity = 90,
+    min_coverage = 80,
+    tool_path = diamond_path
+  )
+
+  expect_s3_class(result, "orthogroup_result")
+  expect_equal(result$method, "diamond_rbh")
+  # Both identical proteins should cluster
+  expect_equal(nrow(result$orthogroups), 2)
+  expect_equal(length(unique(result$orthogroups$orthogroup_id)), 1)
+})
+
+test_that("cluster_proteins uses conda_env to find tool", {
+  # Skip if the project env doesn't exist
+  env_path <- test_path("../../this_project_env")
+  skip_if_not(dir.exists(env_path), "Project conda env not found")
+
+  ps1 <- new_protein_set("asm1", tibble::tibble(
+    protein_id = "asm1_001",
+    sequence = "MKTIIALSYIFCLVFADYKNTDNEANEPSDPYIKKATSALTKSYTNSDKGKLIKAATTTAKQSGKY"
+  ))
+  ps2 <- new_protein_set("asm2", tibble::tibble(
+    protein_id = "asm2_001",
+    sequence = "MKTIIALSYIFCLVFADYKNTDNEANEPSDPYIKKATSALTKSYTNSDKGKLIKAATTTAKQSGKY"
+  ))
+  pc <- new_protein_collection(list(ps1, ps2))
+
+  # Use conda_env instead of tool_path
+  result <- cluster_proteins(
+    pc,
+    method = "diamond_rbh",
+    min_identity = 90,
+    min_coverage = 80,
+    conda_env = env_path
+  )
+
+  expect_s3_class(result, "orthogroup_result")
+  expect_equal(result$method, "diamond_rbh")
+})
+
+test_that("cluster_proteins passes mode parameter correctly", {
+  diamond_path <- get_diamond_path()
+  skip_if(is.null(diamond_path), "DIAMOND not installed")
+
+  ps1 <- new_protein_set("asm1", tibble::tibble(
+    protein_id = "asm1_001",
+    sequence = "MKTIIALSYIFCLVFADYKNTDNEANEPSDPYIKKATSALTKSYTNSDKGKLIKAATTTAKQSGKY"
+  ))
+  ps2 <- new_protein_set("asm2", tibble::tibble(
+    protein_id = "asm2_001",
+    sequence = "MKTIIALSYIFCLVFADYKNTDNEANEPSDPYIKKATSALTKSYTNSDKGKLIKAATTTAKQSGKY"
+  ))
+  pc <- new_protein_collection(list(ps1, ps2))
+
+  # Test thorough mode runs without error
+  result <- cluster_proteins(
+    pc,
+    method = "diamond_rbh",
+    mode = "thorough",
+    min_identity = 90,
+    min_coverage = 80,
+    tool_path = diamond_path
+  )
+
+  expect_s3_class(result, "orthogroup_result")
+  # Mode should be recorded in parameters
+  expect_equal(result$parameters$mode, "thorough")
+})
