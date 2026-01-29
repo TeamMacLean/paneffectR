@@ -271,10 +271,81 @@ new_pa_matrix <- function(matrix,
                           assemblies,
                           type = "binary",
                           threshold = NULL) {
-  cli::cli_abort("pa_matrix is not yet implemented (Phase 3)")
+  # Validate matrix is a matrix
+  if (!is.matrix(matrix)) {
+    cli::cli_abort("{.arg matrix} must be a matrix")
+  }
+
+  # Validate orthogroups is a tibble with required columns
+  if (!tibble::is_tibble(orthogroups)) {
+    cli::cli_abort("{.arg orthogroups} must be a tibble")
+  }
+  if (!"orthogroup_id" %in% names(orthogroups)) {
+    cli::cli_abort("{.arg orthogroups} must have column: {.val orthogroup_id}")
+  }
+
+  # Validate assemblies is a tibble with required columns
+  if (!tibble::is_tibble(assemblies)) {
+    cli::cli_abort("{.arg assemblies} must be a tibble")
+  }
+  if (!"assembly_name" %in% names(assemblies)) {
+    cli::cli_abort("{.arg assemblies} must have column: {.val assembly_name}")
+  }
+
+  # Validate matrix dimensions match metadata
+  if (nrow(matrix) != nrow(orthogroups)) {
+    cli::cli_abort(
+      "Matrix row count ({nrow(matrix)}) does not match orthogroups count ({nrow(orthogroups)})"
+    )
+  }
+  if (ncol(matrix) != nrow(assemblies)) {
+    cli::cli_abort(
+      "Matrix column count ({ncol(matrix)}) does not match assemblies count ({nrow(assemblies)})"
+    )
+  }
+
+  # Validate type is one of allowed values
+  allowed_types <- c("binary", "count", "score")
+  if (!is.character(type) || length(type) != 1 || !type %in% allowed_types) {
+    cli::cli_abort("{.arg type} must be one of: {.val {allowed_types}}")
+  }
+
+  # Validate threshold is NULL or numeric
+  if (!is.null(threshold) && !is.numeric(threshold)) {
+    cli::cli_abort("{.arg threshold} must be NULL or numeric")
+  }
+
+  # Construct object
+  structure(
+    list(
+      matrix = matrix,
+      orthogroups = orthogroups,
+      assemblies = assemblies,
+      type = type,
+      threshold = threshold
+    ),
+    class = "pa_matrix"
+  )
 }
 
 #' @export
 print.pa_matrix <- function(x, ...) {
-  cli::cli_abort("pa_matrix is not yet implemented (Phase 3)")
+  n_og <- nrow(x$matrix)
+  n_asm <- ncol(x$matrix)
+  total_cells <- n_og * n_asm
+
+  # Calculate sparsity (percentage of zeros)
+  n_zeros <- sum(x$matrix == 0)
+  sparsity_pct <- round(100 * n_zeros / total_cells, 1)
+
+  cat("-- pa_matrix (", x$type, ") --\n", sep = "")
+  cat(n_og, " orthogroup", if (n_og != 1) "s", " x ",
+      n_asm, " assembl", if (n_asm == 1) "y" else "ies", "\n", sep = "")
+  cat("Sparsity: ", sparsity_pct, "%\n", sep = "")
+
+  if (!is.null(x$threshold)) {
+    cat("Threshold: ", x$threshold, "\n", sep = "")
+  }
+
+  invisible(x)
 }
