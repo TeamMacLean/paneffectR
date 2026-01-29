@@ -593,3 +593,221 @@ test_that("cluster_proteins passes mode parameter correctly", {
   # Mode should be recorded in parameters
   expect_equal(result$parameters$mode, "thorough")
 })
+
+# expand_clusters_with_best_hits tests ---------------------------------------
+
+test_that("expand_clusters_with_best_hits adds singleton when best hit is in cluster", {
+  # Setup: OG0001 contains A and B
+  # Singleton S has best hit to A (in OG0001)
+  # Expected: S joins OG0001
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0001"),
+    protein_id = c("A", "B")
+  )
+  singletons <- "S"
+  hits <- tibble::tibble(
+    qseqid = c("S", "S"),
+    sseqid = c("A", "B"),
+    bitscore = c(100, 50)  # Best hit is A (score 100)
+  )
+
+  result <- expand_clusters_with_best_hits(orthogroups, singletons, hits)
+
+  expect_type(result, "list")
+  expect_true(all(c("orthogroups", "singletons") %in% names(result)))
+
+  # S should now be in OG0001
+  expect_true("S" %in% result$orthogroups$protein_id)
+  og_for_s <- result$orthogroups$orthogroup_id[result$orthogroups$protein_id == "S"]
+  expect_equal(og_for_s, "OG0001")
+
+  # No singletons remaining
+  expect_equal(length(result$singletons), 0)
+})
+
+test_that("expand_clusters_with_best_hits adds multiple singletons to same cluster", {
+  # Setup: OG0001 contains A
+  # Singletons S1 and S2 both have best hit to A
+  # Expected: Both join OG0001
+  orthogroups <- tibble::tibble(
+    orthogroup_id = "OG0001",
+    protein_id = "A"
+  )
+  singletons <- c("S1", "S2")
+  hits <- tibble::tibble(
+    qseqid = c("S1", "S2"),
+    sseqid = c("A", "A"),
+    bitscore = c(100, 90)
+  )
+
+  result <- expand_clusters_with_best_hits(orthogroups, singletons, hits)
+
+  # Both S1 and S2 should be in OG0001
+  expect_true("S1" %in% result$orthogroups$protein_id)
+  expect_true("S2" %in% result$orthogroups$protein_id)
+  expect_equal(
+    unique(result$orthogroups$orthogroup_id[result$orthogroups$protein_id %in% c("S1", "S2")]),
+    "OG0001"
+  )
+  expect_equal(length(result$singletons), 0)
+})
+
+test_that("expand_clusters_with_best_hits handles transitive expansion", {
+  # Setup: OG0001 contains A
+  # S1's best hit is S2 (also singleton)
+  # S2's best hit is A (in OG0001)
+  # Expected: After iteration, both S1 and S2 join OG0001
+  orthogroups <- tibble::tibble(
+    orthogroup_id = "OG0001",
+    protein_id = "A"
+  )
+  singletons <- c("S1", "S2")
+  hits <- tibble::tibble(
+    qseqid = c("S1", "S1", "S2"),
+    sseqid = c("S2", "A", "A"),
+    bitscore = c(100, 50, 90)  # S1's best is S2, S2's best is A
+  )
+
+  result <- expand_clusters_with_best_hits(orthogroups, singletons, hits)
+
+  # Both S1 and S2 should be in OG0001 after transitive expansion
+  expect_true("S1" %in% result$orthogroups$protein_id)
+  expect_true("S2" %in% result$orthogroups$protein_id)
+  expect_equal(length(result$singletons), 0)
+})
+
+test_that("expand_clusters_with_best_hits keeps singletons when best hit is also singleton", {
+
+  # Setup: No clusters
+  # S1's best hit is S2, S2's best hit is S1
+  # Neither is in a cluster, so neither can join anything
+  # Expected: Both remain singletons
+  orthogroups <- tibble::tibble(
+    orthogroup_id = character(),
+    protein_id = character()
+  )
+  singletons <- c("S1", "S2")
+  hits <- tibble::tibble(
+    qseqid = c("S1", "S2"),
+    sseqid = c("S2", "S1"),
+    bitscore = c(100, 100)
+  )
+
+  result <- expand_clusters_with_best_hits(orthogroups, singletons, hits)
+
+  # Both should remain singletons (no clusters to join)
+  expect_equal(nrow(result$orthogroups), 0)
+  expect_equal(sort(result$singletons), c("S1", "S2"))
+})
+
+test_that("expand_clusters_with_best_hits handles empty singletons", {
+  # No singletons to expand
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0001"),
+    protein_id = c("A", "B")
+  )
+  singletons <- character()
+  hits <- tibble::tibble(
+    qseqid = character(),
+    sseqid = character(),
+    bitscore = numeric()
+  )
+
+  result <- expand_clusters_with_best_hits(orthogroups, singletons, hits)
+
+  # Orthogroups unchanged, singletons still empty
+  expect_equal(nrow(result$orthogroups), 2)
+  expect_equal(length(result$singletons), 0)
+})
+
+test_that("expand_clusters_with_best_hits handles empty orthogroups", {
+  # No clusters exist - singletons cannot join anything
+  orthogroups <- tibble::tibble(
+    orthogroup_id = character(),
+    protein_id = character()
+  )
+  singletons <- c("S1", "S2", "S3")
+  hits <- tibble::tibble(
+    qseqid = c("S1", "S2", "S3"),
+    sseqid = c("S2", "S3", "S1"),
+    bitscore = c(100, 90, 80)
+  )
+
+  result <- expand_clusters_with_best_hits(orthogroups, singletons, hits)
+
+  # All remain singletons (no clusters to join)
+  expect_equal(nrow(result$orthogroups), 0)
+  expect_equal(sort(result$singletons), c("S1", "S2", "S3"))
+})
+
+test_that("expand_clusters_with_best_hits preserves existing orthogroup structure", {
+  # Existing cluster members should not be removed or reassigned
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0001", "OG0002", "OG0002"),
+    protein_id = c("A", "B", "C", "D")
+  )
+  singletons <- "S"
+  hits <- tibble::tibble(
+    qseqid = "S",
+    sseqid = "A",
+    bitscore = 100
+  )
+
+  result <- expand_clusters_with_best_hits(orthogroups, singletons, hits)
+
+  # Original members should still be in their original orthogroups
+  og_a <- result$orthogroups$orthogroup_id[result$orthogroups$protein_id == "A"]
+  og_b <- result$orthogroups$orthogroup_id[result$orthogroups$protein_id == "B"]
+  og_c <- result$orthogroups$orthogroup_id[result$orthogroups$protein_id == "C"]
+  og_d <- result$orthogroups$orthogroup_id[result$orthogroups$protein_id == "D"]
+
+  expect_equal(og_a, "OG0001")
+  expect_equal(og_b, "OG0001")
+  expect_equal(og_c, "OG0002")
+  expect_equal(og_d, "OG0002")
+
+  # S should join OG0001
+  og_s <- result$orthogroups$orthogroup_id[result$orthogroups$protein_id == "S"]
+  expect_equal(og_s, "OG0001")
+})
+
+test_that("expand_clusters_with_best_hits singleton joins correct cluster among multiple", {
+  # When singleton's best hit is in one cluster, it joins that specific cluster
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0001", "OG0002", "OG0002"),
+    protein_id = c("A", "B", "C", "D")
+  )
+  singletons <- "S"
+  hits <- tibble::tibble(
+    qseqid = c("S", "S"),
+    sseqid = c("C", "A"),  # Hits to both clusters
+    bitscore = c(100, 50)  # Best hit is C (in OG0002)
+  )
+
+  result <- expand_clusters_with_best_hits(orthogroups, singletons, hits)
+
+  # S should join OG0002 (where its best hit C is)
+  og_s <- result$orthogroups$orthogroup_id[result$orthogroups$protein_id == "S"]
+  expect_equal(og_s, "OG0002")
+})
+
+test_that("expand_clusters_with_best_hits handles singleton with no hits", {
+  # Singleton has no hits in the hits table - should remain singleton
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0001"),
+    protein_id = c("A", "B")
+  )
+  singletons <- c("S1", "S2")
+  # Only S1 has hits, S2 has no hits
+  hits <- tibble::tibble(
+    qseqid = "S1",
+    sseqid = "A",
+    bitscore = 100
+  )
+
+  result <- expand_clusters_with_best_hits(orthogroups, singletons, hits)
+
+  # S1 joins cluster, S2 remains singleton
+  expect_true("S1" %in% result$orthogroups$protein_id)
+  expect_equal(result$singletons, "S2")
+})
