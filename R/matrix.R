@@ -38,8 +38,8 @@ build_pa_matrix <- function(orthogroups,
   # Validate type
   type <- match.arg(type, c("binary", "count", "score"))
 
-  # For now, only binary is implemented
-  if (type != "binary") {
+  # Score type not yet implemented
+  if (type == "score") {
     cli::cli_abort("Type {.val {type}} is not yet implemented")
   }
 
@@ -51,7 +51,7 @@ build_pa_matrix <- function(orthogroups,
   assemblies <- unique(og_tibble$assembly)
 
   # Sort for consistent ordering
- og_ids <- sort(og_ids)
+  og_ids <- sort(og_ids)
   assemblies <- sort(assemblies)
 
   # Create empty matrix initialized to 0
@@ -62,11 +62,21 @@ build_pa_matrix <- function(orthogroups,
     dimnames = list(og_ids, assemblies)
   )
 
-  # Fill in presences (binary: 1 if any protein from assembly in orthogroup)
-  for (i in seq_len(nrow(og_tibble))) {
-    og <- og_tibble$orthogroup_id[i]
-    asm <- og_tibble$assembly[i]
-    mat[og, asm] <- 1L
+  # Fill in matrix based on type
+  if (type == "binary") {
+    # Binary: 1 if any protein from assembly in orthogroup
+    for (i in seq_len(nrow(og_tibble))) {
+      og <- og_tibble$orthogroup_id[i]
+      asm <- og_tibble$assembly[i]
+      mat[og, asm] <- 1L
+    }
+  } else if (type == "count") {
+    # Count: increment for each protein (detects paralogs)
+    for (i in seq_len(nrow(og_tibble))) {
+      og <- og_tibble$orthogroup_id[i]
+      asm <- og_tibble$assembly[i]
+      mat[og, asm] <- mat[og, asm] + 1L
+    }
   }
 
   # Build orthogroups metadata tibble (orthogroup_id, size)

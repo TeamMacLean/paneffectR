@@ -149,3 +149,62 @@ test_that("build_pa_matrix handles orthogroups with paralogs", {
   expect_equal(pa$matrix["OG0001", "asm1"], 1)
   expect_equal(pa$matrix["OG0001", "asm2"], 1)
 })
+
+# Helper function for count type tests with paralogs
+make_paralog_orthogroup_result <- function() {
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0001", "OG0001", "OG0002"),
+    assembly = c("asm1", "asm1", "asm2", "asm1"),
+    protein_id = c("asm1_p1", "asm1_p2", "asm2_p1", "asm1_p3")
+  )
+  new_orthogroup_result(orthogroups, method = "test")
+}
+# Expected count matrix for make_paralog_orthogroup_result():
+#        asm1  asm2
+# OG0001    2     1   <- asm1 has 2 paralogs
+# OG0002    1     0
+
+# build_pa_matrix() count type tests ---------------------------------------------
+
+test_that("build_pa_matrix count type produces integer counts", {
+  ort <- make_paralog_orthogroup_result()
+  pa <- build_pa_matrix(ort, type = "count")
+
+  # All values should be non-negative integers
+  expect_true(all(pa$matrix >= 0))
+  expect_true(all(pa$matrix == as.integer(pa$matrix)))
+})
+
+test_that("build_pa_matrix count type counts paralogs correctly", {
+  ort <- make_paralog_orthogroup_result()
+  pa <- build_pa_matrix(ort, type = "count")
+
+  # OG0001 has 2 proteins from asm1 (paralogs)
+  expect_equal(pa$matrix["OG0001", "asm1"], 2)
+})
+
+test_that("build_pa_matrix count type single copy remains 1", {
+  ort <- make_paralog_orthogroup_result()
+  pa <- build_pa_matrix(ort, type = "count")
+
+  # OG0001 has 1 protein from asm2
+  expect_equal(pa$matrix["OG0001", "asm2"], 1)
+
+  # OG0002 has 1 protein from asm1
+  expect_equal(pa$matrix["OG0002", "asm1"], 1)
+})
+
+test_that("build_pa_matrix count type absence is 0", {
+  ort <- make_paralog_orthogroup_result()
+  pa <- build_pa_matrix(ort, type = "count")
+
+  # OG0002 has no proteins from asm2
+  expect_equal(pa$matrix["OG0002", "asm2"], 0)
+})
+
+test_that("build_pa_matrix count type sets type to 'count'", {
+  ort <- make_paralog_orthogroup_result()
+  pa <- build_pa_matrix(ort, type = "count")
+
+  expect_equal(pa$type, "count")
+})
