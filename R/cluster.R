@@ -134,6 +134,100 @@ build_orthogroups_from_rbh <- function(rbh_pairs, all_protein_ids) {
   dplyr::bind_rows(result_list)
 }
 
+#' Expand orthogroups by adding singletons whose best hit is in a cluster
+#'
+#' Iteratively adds singleton proteins to existing orthogroups when their
+#' best BLAST hit is already a member of that orthogroup. This allows
+#' orthogroups to grow beyond the strict RBH pairs.
+#'
+#' @param orthogroups A tibble with columns: orthogroup_id, protein_id
+#' @param singletons Character vector of singleton protein IDs
+#' @param hits A tibble with columns: qseqid, sseqid, bitscore
+#'
+#' @return A list with:
+#'   - $orthogroups: expanded tibble with orthogroup_id, protein_id
+#'   - $singletons: character vector of remaining singletons
+#' @keywords internal
+expand_clusters_with_best_hits <- function(orthogroups, singletons, hits) {
+  # Handle empty singletons - nothing to expand
+
+if (length(singletons) == 0) {
+    return(list(
+      orthogroups = orthogroups,
+      singletons = character()
+    ))
+  }
+
+  # Handle empty orthogroups - no clusters to join
+  if (nrow(orthogroups) == 0) {
+    return(list(
+      orthogroups = orthogroups,
+      singletons = singletons
+    ))
+  }
+
+  # Remove self-hits from consideration
+  hits <- hits[hits$qseqid != hits$sseqid, ]
+
+  # Create a working copy of orthogroups and singletons
+  current_orthogroups <- orthogroups
+  current_singletons <- singletons
+
+  # Iterate until no more singletons can be added
+  repeat {
+    # Build lookup: protein_id -> orthogroup_id for current cluster members
+    protein_to_og <- stats::setNames(
+      current_orthogroups$orthogroup_id,
+      current_orthogroups$protein_id
+    )
+
+    # Find best hit for each singleton
+    singleton_hits <- hits[hits$qseqid %in% current_singletons, ]
+
+    if (nrow(singleton_hits) == 0) {
+      # No hits for any singleton - done
+      break
+    }
+
+    # Get best hit (highest bitscore) for each singleton
+    best_hits <- singleton_hits |>
+      dplyr::group_by(.data$qseqid) |>
+      dplyr::slice_max(order_by = .data$bitscore, n = 1, with_ties = FALSE) |>
+      dplyr::ungroup()
+
+    # Find singletons whose best hit is in a cluster
+    joinable <- best_hits |>
+      dplyr::filter(.data$sseqid %in% names(protein_to_og)) |>
+      dplyr::mutate(orthogroup_id = unname(protein_to_og[.data$sseqid]))
+
+    if (nrow(joinable) == 0) {
+      # No singletons can join any cluster - done
+      break
+    }
+
+    # Add joinable singletons to orthogroups
+    new_members <- tibble::tibble(
+      orthogroup_id = joinable$orthogroup_id,
+      protein_id = joinable$qseqid
+    )
+
+    current_orthogroups <- dplyr::bind_rows(current_orthogroups, new_members)
+
+    # Remove joined proteins from singletons
+    current_singletons <- setdiff(current_singletons, joinable$qseqid)
+
+    # If no singletons left, we're done
+    if (length(current_singletons) == 0) {
+      break
+    }
+  }
+
+  list(
+    orthogroups = current_orthogroups,
+    singletons = current_singletons
+  )
+}
+
 # DIAMOND Backend Functions -------------------------------------------------
 
 #' Write protein_collection to single FASTA file
@@ -349,8 +443,21 @@ run_diamond_rbh <- function(proteins,
     ps$proteins$protein_id
   }))
 
-  # Build orthogroups
-  orthogroups_raw <- build_orthogroups_from_rbh(rbh_pairs, all_protein_ids)
+  # Phase 1: Build initial orthogroups from RBH pairs (strict, seed clusters)
+  orthogroups_seed <- build_orthogroups_from_rbh(rbh_pairs, all_protein_ids)
+
+  # Identify initial singletons (proteins not in any RBH cluster)
+  initial_singletons <- setdiff(all_protein_ids, orthogroups_seed$protein_id)
+
+  # Phase 2: Expand clusters by adding singletons whose best hit is in a cluster
+  # This allows orthogroups to grow beyond pairs
+  expanded <- expand_clusters_with_best_hits(
+    orthogroups = orthogroups_seed,
+    singletons = initial_singletons,
+    hits = hits[, c("qseqid", "sseqid", "bitscore")]
+  )
+  orthogroups_raw <- expanded$orthogroups
+  final_singleton_ids <- expanded$singletons
 
   # Add assembly information to orthogroups
   # Create protein_id -> assembly lookup
@@ -374,13 +481,10 @@ run_diamond_rbh <- function(proteins,
     )
   }
 
-  # Identify singletons
-  clustered_proteins <- orthogroups$protein_id
-  singleton_ids <- setdiff(all_protein_ids, clustered_proteins)
-
-  singletons <- if (length(singleton_ids) > 0) {
+  # Build singletons tibble with assembly info
+  singletons <- if (length(final_singleton_ids) > 0) {
     protein_assembly |>
-      dplyr::filter(.data$protein_id %in% singleton_ids)
+      dplyr::filter(.data$protein_id %in% final_singleton_ids)
   } else {
     tibble::tibble(
       protein_id = character(),
