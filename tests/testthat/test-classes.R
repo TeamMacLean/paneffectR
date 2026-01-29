@@ -285,8 +285,206 @@ test_that("print.orthogroup_result shows singletons when present", {
   expect_output(print(result), "2 singleton")
 })
 
-# pa_matrix stubs -----------------------------------------------------------
+# pa_matrix tests -----------------------------------------------------------
 
-test_that("new_pa_matrix is not yet implemented", {
-  expect_error(new_pa_matrix(NULL, NULL, NULL), "not yet implemented")
+test_that("new_pa_matrix creates valid object", {
+  mat <- matrix(
+    c(1, 0, 1, 1, 1, 0),
+    nrow = 3, ncol = 2,
+    dimnames = list(c("OG0001", "OG0002", "OG0003"), c("asm1", "asm2"))
+  )
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0002", "OG0003"),
+    size = c(2L, 2L, 1L)
+  )
+  assemblies <- tibble::tibble(
+    assembly_name = c("asm1", "asm2"),
+    n_orthogroups = c(3L, 2L)
+  )
+
+  pa <- new_pa_matrix(mat, orthogroups, assemblies, type = "binary")
+  expect_s3_class(pa, "pa_matrix")
+})
+
+test_that("new_pa_matrix stores all components", {
+  mat <- matrix(
+    c(1, 0, 1, 1),
+    nrow = 2, ncol = 2,
+    dimnames = list(c("OG0001", "OG0002"), c("asm1", "asm2"))
+  )
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0002"),
+    size = c(2L, 2L)
+  )
+  assemblies <- tibble::tibble(
+    assembly_name = c("asm1", "asm2"),
+    n_orthogroups = c(2L, 2L)
+  )
+
+  pa <- new_pa_matrix(mat, orthogroups, assemblies, type = "binary", threshold = 0.5)
+
+  expect_equal(pa$matrix, mat)
+  expect_equal(pa$orthogroups, orthogroups)
+  expect_equal(pa$assemblies, assemblies)
+  expect_equal(pa$type, "binary")
+  expect_equal(pa$threshold, 0.5)
+})
+
+test_that("new_pa_matrix validates matrix is a matrix", {
+  orthogroups <- tibble::tibble(orthogroup_id = "OG1", size = 1L)
+  assemblies <- tibble::tibble(assembly_name = "asm1", n_orthogroups = 1L)
+
+  expect_error(new_pa_matrix(NULL, orthogroups, assemblies, "binary"))
+  expect_error(new_pa_matrix("not a matrix", orthogroups, assemblies, "binary"))
+  expect_error(new_pa_matrix(data.frame(x = 1), orthogroups, assemblies, "binary"))
+})
+
+test_that("new_pa_matrix validates matrix row count matches orthogroups", {
+  # Matrix has 3 rows, orthogroups has 2
+  mat <- matrix(
+    c(1, 0, 1, 1, 1, 0),
+    nrow = 3, ncol = 2,
+    dimnames = list(c("OG0001", "OG0002", "OG0003"), c("asm1", "asm2"))
+  )
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0002"),
+    size = c(2L, 2L)
+  )
+  assemblies <- tibble::tibble(
+    assembly_name = c("asm1", "asm2"),
+    n_orthogroups = c(2L, 2L)
+  )
+
+  expect_error(new_pa_matrix(mat, orthogroups, assemblies, "binary"), "row")
+})
+
+test_that("new_pa_matrix validates matrix column count matches assemblies", {
+  # Matrix has 2 cols, assemblies has 3
+  mat <- matrix(
+    c(1, 0, 1, 1),
+    nrow = 2, ncol = 2,
+    dimnames = list(c("OG0001", "OG0002"), c("asm1", "asm2"))
+  )
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0002"),
+    size = c(2L, 2L)
+  )
+  assemblies <- tibble::tibble(
+    assembly_name = c("asm1", "asm2", "asm3"),
+    n_orthogroups = c(2L, 2L, 1L)
+  )
+
+  expect_error(new_pa_matrix(mat, orthogroups, assemblies, "binary"), "column")
+})
+
+test_that("new_pa_matrix validates orthogroups is tibble with required columns", {
+  mat <- matrix(1, nrow = 1, ncol = 1, dimnames = list("OG1", "asm1"))
+  assemblies <- tibble::tibble(assembly_name = "asm1", n_orthogroups = 1L)
+
+  # Not a tibble
+  expect_error(new_pa_matrix(mat, NULL, assemblies, "binary"))
+  expect_error(new_pa_matrix(mat, "not tibble", assemblies, "binary"))
+
+  # Missing orthogroup_id column
+  bad_og <- tibble::tibble(size = 1L)
+  expect_error(new_pa_matrix(mat, bad_og, assemblies, "binary"), "orthogroup_id")
+})
+
+test_that("new_pa_matrix validates assemblies is tibble with required columns", {
+  mat <- matrix(1, nrow = 1, ncol = 1, dimnames = list("OG1", "asm1"))
+  orthogroups <- tibble::tibble(orthogroup_id = "OG1", size = 1L)
+
+  # Not a tibble
+  expect_error(new_pa_matrix(mat, orthogroups, NULL, "binary"))
+  expect_error(new_pa_matrix(mat, orthogroups, "not tibble", "binary"))
+
+  # Missing assembly_name column
+  bad_asm <- tibble::tibble(n_orthogroups = 1L)
+  expect_error(new_pa_matrix(mat, orthogroups, bad_asm, "binary"), "assembly_name")
+})
+
+test_that("new_pa_matrix validates type is one of allowed values", {
+  mat <- matrix(1, nrow = 1, ncol = 1, dimnames = list("OG1", "asm1"))
+  orthogroups <- tibble::tibble(orthogroup_id = "OG1", size = 1L)
+  assemblies <- tibble::tibble(assembly_name = "asm1", n_orthogroups = 1L)
+
+  expect_error(new_pa_matrix(mat, orthogroups, assemblies, "invalid"))
+  expect_error(new_pa_matrix(mat, orthogroups, assemblies, NULL))
+  expect_error(new_pa_matrix(mat, orthogroups, assemblies, 123))
+
+  # Valid types should work (once implemented)
+  # expect_no_error(new_pa_matrix(mat, orthogroups, assemblies, "binary"))
+  # expect_no_error(new_pa_matrix(mat, orthogroups, assemblies, "count"))
+  # expect_no_error(new_pa_matrix(mat, orthogroups, assemblies, "score"))
+})
+
+test_that("new_pa_matrix accepts NULL threshold for binary and count types", {
+  mat <- matrix(1, nrow = 1, ncol = 1, dimnames = list("OG1", "asm1"))
+  orthogroups <- tibble::tibble(orthogroup_id = "OG1", size = 1L)
+  assemblies <- tibble::tibble(assembly_name = "asm1", n_orthogroups = 1L)
+
+  pa_binary <- new_pa_matrix(mat, orthogroups, assemblies, "binary", threshold = NULL)
+  expect_null(pa_binary$threshold)
+
+  pa_count <- new_pa_matrix(mat, orthogroups, assemblies, "count", threshold = NULL)
+  expect_null(pa_count$threshold)
+})
+
+test_that("new_pa_matrix accepts numeric threshold", {
+  mat <- matrix(1, nrow = 1, ncol = 1, dimnames = list("OG1", "asm1"))
+  orthogroups <- tibble::tibble(orthogroup_id = "OG1", size = 1L)
+  assemblies <- tibble::tibble(assembly_name = "asm1", n_orthogroups = 1L)
+
+  pa <- new_pa_matrix(mat, orthogroups, assemblies, "score", threshold = 5.0)
+  expect_equal(pa$threshold, 5.0)
+})
+
+test_that("print.pa_matrix shows dimensions", {
+  mat <- matrix(
+    c(1, 0, 1, 1, 1, 0),
+    nrow = 3, ncol = 2,
+    dimnames = list(c("OG0001", "OG0002", "OG0003"), c("asm1", "asm2"))
+  )
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0002", "OG0003"),
+    size = c(2L, 2L, 1L)
+  )
+  assemblies <- tibble::tibble(
+    assembly_name = c("asm1", "asm2"),
+    n_orthogroups = c(3L, 2L)
+  )
+  pa <- new_pa_matrix(mat, orthogroups, assemblies, "binary")
+
+  expect_output(print(pa), "3")  # 3 orthogroups
+  expect_output(print(pa), "2")  # 2 assemblies
+})
+
+test_that("print.pa_matrix shows type", {
+  mat <- matrix(1, nrow = 1, ncol = 1, dimnames = list("OG1", "asm1"))
+  orthogroups <- tibble::tibble(orthogroup_id = "OG1", size = 1L)
+  assemblies <- tibble::tibble(assembly_name = "asm1", n_orthogroups = 1L)
+  pa <- new_pa_matrix(mat, orthogroups, assemblies, "binary")
+
+  expect_output(print(pa), "binary")
+})
+
+test_that("print.pa_matrix shows sparsity percentage", {
+  # Matrix with 2 zeros out of 6 cells = 33.3% sparse
+  mat <- matrix(
+    c(1, 0, 1, 1, 1, 0),
+    nrow = 3, ncol = 2,
+    dimnames = list(c("OG0001", "OG0002", "OG0003"), c("asm1", "asm2"))
+  )
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0002", "OG0003"),
+    size = c(2L, 2L, 1L)
+  )
+  assemblies <- tibble::tibble(
+    assembly_name = c("asm1", "asm2"),
+    n_orthogroups = c(3L, 2L)
+  )
+  pa <- new_pa_matrix(mat, orthogroups, assemblies, "binary")
+
+  # Should show some percentage indicating sparsity
+  expect_output(print(pa), "%")
 })
