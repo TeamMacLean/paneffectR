@@ -208,3 +208,152 @@ test_that("build_pa_matrix count type sets type to 'count'", {
 
   expect_equal(pa$type, "count")
 })
+
+# Helper functions for score type tests ----------------------------------------
+
+# Helper to create protein_collection with scores
+make_scored_protein_collection <- function() {
+  # asm1 has p1 (score=5), p2 (score=8), p3 (score=3)
+  # asm2 has p1 (score=7)
+  proteins_asm1 <- tibble::tibble(
+    protein_id = c("asm1_p1", "asm1_p2", "asm1_p3"),
+    sequence = c("AAA", "BBB", "CCC"),
+    custom_score = c(5, 8, 3)
+  )
+  proteins_asm2 <- tibble::tibble(
+    protein_id = c("asm2_p1"),
+    sequence = c("DDD"),
+    custom_score = c(7)
+  )
+
+  ps1 <- new_protein_set("asm1", proteins_asm1)
+  ps2 <- new_protein_set("asm2", proteins_asm2)
+  new_protein_collection(list(ps1, ps2))
+}
+
+# Orthogroup with paralogs having different scores
+make_scored_orthogroup_result <- function() {
+  # OG0001: asm1_p1 (score=5), asm1_p2 (score=8), asm2_p1 (score=7)
+  # OG0002: asm1_p3 (score=3)
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0001", "OG0001", "OG0002"),
+    assembly = c("asm1", "asm1", "asm2", "asm1"),
+    protein_id = c("asm1_p1", "asm1_p2", "asm2_p1", "asm1_p3")
+  )
+  new_orthogroup_result(orthogroups, method = "test")
+}
+
+# Expected score matrix with max aggregation:
+#        asm1  asm2
+# OG0001    8     7   <- asm1 has max(5, 8)=8, asm2 has 7
+# OG0002    3    NA   <- asm1 has 3, asm2 absent
+
+# Expected score matrix with mean aggregation:
+#        asm1  asm2
+# OG0001  6.5     7   <- asm1 has mean(5, 8)=6.5
+# OG0002    3    NA
+
+# Expected score matrix with sum aggregation:
+#        asm1  asm2
+# OG0001   13     7   <- asm1 has sum(5, 8)=13
+# OG0002    3    NA
+
+# build_pa_matrix() score type tests -------------------------------------------
+
+test_that("build_pa_matrix score type requires proteins argument", {
+  ort <- make_scored_orthogroup_result()
+
+  expect_error(
+    build_pa_matrix(ort, type = "score", proteins = NULL),
+    regexp = "proteins"
+  )
+})
+
+test_that("build_pa_matrix score type looks up scores correctly", {
+  ort <- make_scored_orthogroup_result()
+  proteins <- make_scored_protein_collection()
+
+  pa <- build_pa_matrix(ort, proteins = proteins, type = "score")
+
+  # Single protein case: asm2_p1 has score 7
+
+  expect_equal(pa$matrix["OG0001", "asm2"], 7)
+
+  # Single protein case: asm1_p3 has score 3
+  expect_equal(pa$matrix["OG0002", "asm1"], 3)
+})
+
+test_that("build_pa_matrix score aggregation max works", {
+  ort <- make_scored_orthogroup_result()
+  proteins <- make_scored_protein_collection()
+
+  pa <- build_pa_matrix(ort, proteins = proteins, type = "score",
+                        score_aggregation = "max")
+
+  # OG0001 in asm1 has proteins with scores 5 and 8, max = 8
+  expect_equal(pa$matrix["OG0001", "asm1"], 8)
+})
+
+test_that("build_pa_matrix score aggregation mean works", {
+  ort <- make_scored_orthogroup_result()
+  proteins <- make_scored_protein_collection()
+
+  pa <- build_pa_matrix(ort, proteins = proteins, type = "score",
+                        score_aggregation = "mean")
+
+  # OG0001 in asm1 has proteins with scores 5 and 8, mean = 6.5
+  expect_equal(pa$matrix["OG0001", "asm1"], 6.5)
+})
+
+test_that("build_pa_matrix score aggregation sum works", {
+  ort <- make_scored_orthogroup_result()
+  proteins <- make_scored_protein_collection()
+
+  pa <- build_pa_matrix(ort, proteins = proteins, type = "score",
+                        score_aggregation = "sum")
+
+  # OG0001 in asm1 has proteins with scores 5 and 8, sum = 13
+  expect_equal(pa$matrix["OG0001", "asm1"], 13)
+})
+
+test_that("build_pa_matrix score type uses NA for absent orthogroups", {
+  ort <- make_scored_orthogroup_result()
+  proteins <- make_scored_protein_collection()
+
+  pa <- build_pa_matrix(ort, proteins = proteins, type = "score")
+
+  # OG0002 is absent in asm2
+  expect_true(is.na(pa$matrix["OG0002", "asm2"]))
+})
+
+test_that("build_pa_matrix score type sets type to 'score'", {
+  ort <- make_scored_orthogroup_result()
+  proteins <- make_scored_protein_collection()
+
+  pa <- build_pa_matrix(ort, proteins = proteins, type = "score")
+
+  expect_equal(pa$type, "score")
+})
+
+test_that("build_pa_matrix score type works with custom score column", {
+  # Create protein collection with different score column name
+  proteins_asm1 <- tibble::tibble(
+    protein_id = c("asm1_p1", "asm1_p2"),
+    sequence = c("AAA", "BBB"),
+    my_score = c(10, 20)
+  )
+  ps1 <- new_protein_set("asm1", proteins_asm1)
+  proteins <- new_protein_collection(list(ps1))
+
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0001"),
+    assembly = c("asm1", "asm1"),
+    protein_id = c("asm1_p1", "asm1_p2")
+  )
+  ort <- new_orthogroup_result(orthogroups, method = "test")
+
+  pa <- build_pa_matrix(ort, proteins = proteins, type = "score",
+                        score_column = "my_score", score_aggregation = "max")
+
+  expect_equal(pa$matrix["OG0001", "asm1"], 20)
+})
