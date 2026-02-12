@@ -214,3 +214,166 @@ test_that("plot_heatmap accepts custom color parameter", {
 
   expect_s4_class(ht, "Heatmap")
 })
+
+# =============================================================================
+# Chunk 2: Annotation and Distance Metric Tests
+# =============================================================================
+
+# plot_heatmap() row_annotation tests -----------------------------------------
+
+test_that("plot_heatmap works with row_annotation (single column)", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  pa <- build_pa_matrix(make_test_orthogroup_result())
+
+  row_ann <- data.frame(
+    size = c(2, 2, 1),
+    row.names = c("OG0001", "OG0002", "OG0003")
+  )
+
+  ht <- plot_heatmap(pa, row_annotation = row_ann)
+
+  expect_s4_class(ht, "Heatmap")
+})
+
+test_that("plot_heatmap works with row_annotation (multiple columns)", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  pa <- build_pa_matrix(make_test_orthogroup_result())
+
+  row_ann <- data.frame(
+    size = c(2, 2, 1),
+    category = c("shared", "shared", "unique"),
+    row.names = c("OG0001", "OG0002", "OG0003")
+  )
+
+  ht <- plot_heatmap(pa, row_annotation = row_ann)
+
+  expect_s4_class(ht, "Heatmap")
+})
+
+test_that("plot_heatmap works with partial row_annotation match", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  pa <- build_pa_matrix(make_test_orthogroup_result())
+
+  # Only annotate 2 of 3 orthogroups
+  row_ann <- data.frame(
+    size = c(2, 2),
+    row.names = c("OG0001", "OG0002")
+  )
+
+  # Should work with warning about partial match
+  expect_warning(
+    ht <- plot_heatmap(pa, row_annotation = row_ann),
+    regexp = "annotation|match"
+  )
+
+  expect_s4_class(ht, "Heatmap")
+})
+
+# plot_heatmap() col_annotation tests -----------------------------------------
+
+test_that("plot_heatmap works with col_annotation", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  pa <- build_pa_matrix(make_test_orthogroup_result())
+
+  col_ann <- data.frame(
+    species = c("P. destructor", "P. destructor"),
+    row.names = c("asm1", "asm2")
+  )
+
+  ht <- plot_heatmap(pa, col_annotation = col_ann)
+
+  expect_s4_class(ht, "Heatmap")
+})
+
+test_that("plot_heatmap works with both row and col annotations", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  pa <- build_pa_matrix(make_test_orthogroup_result())
+
+  row_ann <- data.frame(
+    size = c(2, 2, 1),
+    row.names = c("OG0001", "OG0002", "OG0003")
+  )
+
+  col_ann <- data.frame(
+    species = c("P. destructor", "P. destructor"),
+    row.names = c("asm1", "asm2")
+  )
+
+  ht <- plot_heatmap(pa, row_annotation = row_ann, col_annotation = col_ann)
+
+  expect_s4_class(ht, "Heatmap")
+})
+
+test_that("plot_heatmap warns on mismatched col_annotation names", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  pa <- build_pa_matrix(make_test_orthogroup_result())
+
+  # Only annotate 1 of 2 assemblies
+  col_ann <- data.frame(
+    species = c("P. destructor"),
+    row.names = c("asm1")
+  )
+
+  expect_warning(
+    ht <- plot_heatmap(pa, col_annotation = col_ann),
+    regexp = "annotation|match"
+  )
+
+  expect_s4_class(ht, "Heatmap")
+})
+
+# plot_heatmap() distance_method tests ----------------------------------------
+
+test_that("plot_heatmap distance_method = 'binary' works (default)", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  pa <- build_pa_matrix(make_test_orthogroup_result())
+
+  ht <- plot_heatmap(pa, cluster_rows = TRUE, distance_method = "binary")
+
+  expect_s4_class(ht, "Heatmap")
+})
+
+test_that("plot_heatmap distance_method = 'jaccard' works", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  pa <- build_pa_matrix(make_test_orthogroup_result())
+
+  ht <- plot_heatmap(pa, cluster_rows = TRUE, distance_method = "jaccard")
+
+  expect_s4_class(ht, "Heatmap")
+})
+
+test_that("plot_heatmap distance_method = 'bray-curtis' works", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  # Use count matrix for bray-curtis
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0001", "OG0001", "OG0002"),
+    assembly = c("asm1", "asm1", "asm2", "asm1"),
+    protein_id = c("asm1_p1", "asm1_p2", "asm2_p1", "asm1_p3")
+  )
+  ort <- new_orthogroup_result(orthogroups, method = "test")
+  pa <- build_pa_matrix(ort, type = "count")
+
+  ht <- plot_heatmap(pa, cluster_rows = TRUE, distance_method = "bray-curtis")
+
+  expect_s4_class(ht, "Heatmap")
+})
+
+test_that("plot_heatmap errors on invalid distance_method", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  pa <- build_pa_matrix(make_test_orthogroup_result())
+
+  expect_error(
+    plot_heatmap(pa, distance_method = "invalid_method"),
+    regexp = "distance_method"
+  )
+})
