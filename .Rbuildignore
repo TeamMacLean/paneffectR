@@ -15,3 +15,6 @@
 ^similar_CLAUDE\.md$
 ^doc$
 ^Meta$
+^this_project_env\.yaml$
+^this_project_env$
+^mamba\.md$

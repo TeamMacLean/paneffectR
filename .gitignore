@@ -30,3 +30,9 @@ semi-autonomous-feature-development.md
 similar_CLAUDE.md
 /doc/
 /Meta/
+
+# Mamba environment (large, reproducible from yaml)
+this_project_env/
+
+# Claude Code local settings
+.claude/
