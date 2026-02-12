@@ -477,3 +477,149 @@ test_that("score_threshold with custom score_column", {
   expect_equal(nrow(pa$matrix), 1)
   expect_equal(rownames(pa$matrix), "OG0001")
 })
+
+# [.pa_matrix subsetting tests -------------------------------------------------
+
+test_that("[.pa_matrix subsets rows correctly", {
+  ort <- make_test_orthogroup_result()
+  pa <- build_pa_matrix(ort)
+
+  # Subset first 2 rows
+  pa_sub <- pa[1:2, ]
+
+  expect_equal(nrow(pa_sub$matrix), 2)
+  expect_equal(ncol(pa_sub$matrix), 2)  # All columns preserved
+})
+
+test_that("[.pa_matrix subsets columns correctly", {
+  ort <- make_test_orthogroup_result()
+  pa <- build_pa_matrix(ort)
+
+  # Subset to one column
+  pa_sub <- pa[, "asm1"]
+
+  expect_equal(nrow(pa_sub$matrix), 3)  # All rows preserved
+  expect_equal(ncol(pa_sub$matrix), 1)
+  expect_equal(colnames(pa_sub$matrix), "asm1")
+})
+
+test_that("[.pa_matrix subsets both dimensions", {
+  ort <- make_test_orthogroup_result()
+  pa <- build_pa_matrix(ort)
+
+  # Subset both
+  pa_sub <- pa[1:2, "asm1"]
+
+  expect_equal(nrow(pa_sub$matrix), 2)
+  expect_equal(ncol(pa_sub$matrix), 1)
+})
+
+test_that("[.pa_matrix returns pa_matrix class", {
+  ort <- make_test_orthogroup_result()
+  pa <- build_pa_matrix(ort)
+
+  pa_sub <- pa[1:2, ]
+
+  expect_s3_class(pa_sub, "pa_matrix")
+})
+
+test_that("[.pa_matrix updates orthogroups metadata to match subset", {
+  ort <- make_test_orthogroup_result()
+  pa <- build_pa_matrix(ort)
+
+  # Subset to first 2 orthogroups
+  pa_sub <- pa[1:2, ]
+
+  # Metadata should have 2 rows matching the subsetted orthogroups
+ expect_equal(nrow(pa_sub$orthogroups), 2)
+  expect_equal(pa_sub$orthogroups$orthogroup_id, rownames(pa_sub$matrix))
+})
+
+test_that("[.pa_matrix updates assemblies metadata to match subset", {
+  ort <- make_test_orthogroup_result()
+  pa <- build_pa_matrix(ort)
+
+  # Subset to one assembly
+  pa_sub <- pa[, "asm1"]
+
+  # Metadata should have 1 row matching the subsetted assembly
+  expect_equal(nrow(pa_sub$assemblies), 1)
+  expect_equal(pa_sub$assemblies$assembly_name, "asm1")
+})
+
+test_that("[.pa_matrix preserves type", {
+  ort <- make_test_orthogroup_result()
+  pa <- build_pa_matrix(ort, type = "binary")
+
+  pa_sub <- pa[1:2, ]
+
+  expect_equal(pa_sub$type, "binary")
+})
+
+test_that("[.pa_matrix works with row names", {
+  ort <- make_test_orthogroup_result()
+  pa <- build_pa_matrix(ort)
+
+  # Subset by orthogroup name
+  pa_sub <- pa["OG0001", ]
+
+  expect_equal(nrow(pa_sub$matrix), 1)
+  expect_equal(rownames(pa_sub$matrix), "OG0001")
+})
+
+# as.data.frame.pa_matrix tests ------------------------------------------------
+
+test_that("as.data.frame.pa_matrix returns data.frame", {
+  ort <- make_test_orthogroup_result()
+  pa <- build_pa_matrix(ort)
+
+  df <- as.data.frame(pa)
+
+  expect_true(is.data.frame(df))
+})
+
+test_that("as.data.frame.pa_matrix long format has correct columns", {
+  ort <- make_test_orthogroup_result()
+  pa <- build_pa_matrix(ort)
+
+  df <- as.data.frame(pa, format = "long")
+
+  expect_true("orthogroup_id" %in% names(df))
+  expect_true("assembly" %in% names(df))
+  expect_true("value" %in% names(df))
+})
+
+test_that("as.data.frame.pa_matrix long format has correct rows", {
+  ort <- make_test_orthogroup_result()
+  pa <- build_pa_matrix(ort)
+
+  df <- as.data.frame(pa, format = "long")
+
+  # 3 orthogroups x 2 assemblies = 6 rows
+  expect_equal(nrow(df), 6)
+})
+
+test_that("as.data.frame.pa_matrix wide format matches matrix", {
+  ort <- make_test_orthogroup_result()
+  pa <- build_pa_matrix(ort)
+
+  df <- as.data.frame(pa, format = "wide")
+
+  # Should have orthogroup_id column plus assembly columns
+  expect_true("orthogroup_id" %in% names(df))
+  expect_true("asm1" %in% names(df))
+  expect_true("asm2" %in% names(df))
+  expect_equal(nrow(df), 3)
+})
+
+test_that("as.data.frame.pa_matrix defaults to long format", {
+  ort <- make_test_orthogroup_result()
+  pa <- build_pa_matrix(ort)
+
+  df <- as.data.frame(pa)
+
+  # Default should be long format
+  expect_true("orthogroup_id" %in% names(df))
+  expect_true("assembly" %in% names(df))
+  expect_true("value" %in% names(df))
+})
