@@ -4,27 +4,23 @@
 \alias{plot_upset}
 \title{Plot UpSet diagram of orthogroup sharing}
 \usage{
-plot_upset(
-  pa,
-  min_size = 1,
-  max_sets = NULL,
-  order_by = c("freq", "degree"),
-  ...
-)
+plot_upset(pa, min_size = 1, max_sets = NULL, order_by = "freq", ...)
 }
 \arguments{
 \item{pa}{A \code{pa_matrix} object.}
 
 \item{min_size}{Integer. Minimum intersection size to show (default: 1).}
 
-\item{max_sets}{Integer. Maximum number of sets to display.}
+\item{max_sets}{Integer. Maximum number of sets to display. If NULL (default),
+all assemblies are shown.}
 
-\item{order_by}{Character. How to order intersections: "freq" or "degree".}
+\item{order_by}{Character. How to order intersections: "freq" (by size,
+default) or "degree" (by number of sets in intersection).}
 
 \item{...}{Additional arguments passed to UpSetR::upset().}
 }
 \value{
-An UpSetR plot object.
+Draws an UpSet plot (base graphics). Returns invisibly.
 }
 \description{
 Creates an UpSet plot showing intersections of orthogroups across assemblies.
@@ -34,5 +30,6 @@ Useful for visualizing core, accessory, and unique orthogroups.
 \dontrun{
 plot_upset(pa)
 plot_upset(pa, min_size = 2)
+plot_upset(pa, order_by = "degree")
 }
 }
