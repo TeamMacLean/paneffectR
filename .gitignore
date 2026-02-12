@@ -36,3 +36,6 @@ this_project_env/
 
 # Claude Code local settings
 .claude/
+
+# Generated HTML from Rmd
+dev/*.html

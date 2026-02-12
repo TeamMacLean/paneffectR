@@ -1,0 +1,17 @@
+protein_id,assembly,expected_og,protein_name,uniprot_accession,notes
+scer_ACT1,scer,OG_actin,Actin,P60010,Clear 1:1 ortholog - highly conserved cytoskeletal protein
+spom_act1,spom,OG_actin,Actin,P10989,Clear 1:1 ortholog - highly conserved cytoskeletal protein
+ncra_act,ncra,OG_actin,Actin,P78711,Clear 1:1 ortholog - highly conserved cytoskeletal protein
+scer_TDH1,scer,OG_gapdh,Glyceraldehyde-3-phosphate dehydrogenase 1,P00360,Conserved glycolytic enzyme
+spom_tdh1,spom,OG_gapdh,Glyceraldehyde-3-phosphate dehydrogenase 1,P78958,Conserved glycolytic enzyme
+ncra_gpd1,ncra,OG_gapdh,Glyceraldehyde-3-phosphate dehydrogenase,P54118,Conserved glycolytic enzyme
+scer_HHT1,scer,OG_histone_h3,Histone H3,P61830,Extremely conserved nuclear protein
+spom_hht1,spom,OG_histone_h3,Histone H3.1/H3.2,P09988,Extremely conserved nuclear protein
+ncra_hh3,ncra,OG_histone_h3,Histone H3,P07041,Extremely conserved nuclear protein
+scer_TEF1,scer,OG_ef1a,Elongation factor 1-alpha,P02994,Conserved translation machinery
+spom_tef101,spom,OG_ef1a,Elongation factor 1-alpha-A,P0CT53,Conserved translation machinery
+ncra_tef1,ncra,OG_ef1a,Elongation factor 1-alpha,Q01372,Conserved translation machinery
+scer_CYC1,scer,OG_cyc,Cytochrome c isoform 1,P00044,Classic phylogenetic marker - electron transport
+spom_cyc1,spom,OG_cyc,Cytochrome c,P00046,Classic phylogenetic marker - electron transport
+ncra_cyc1,ncra,OG_cyc,Cytochrome c,P00048,Classic phylogenetic marker - electron transport
+scer_MFA1,scer,singleton,Mating factor alpha-1,P01149,Species-specific mating pheromone - no orthologs expected
