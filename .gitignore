@@ -39,3 +39,4 @@ this_project_env/
 
 # Generated HTML from Rmd
 dev/*.html
+Rplots.pdf
