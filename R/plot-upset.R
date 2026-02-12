@@ -17,7 +17,7 @@ NULL
 #'   default) or "degree" (by number of sets in intersection).
 #' @param ... Additional arguments passed to UpSetR::upset().
 #'
-#' @return Draws an UpSet plot (base graphics). Returns invisibly.
+#' @return An UpSetR plot object (can be printed to display).
 #' @export
 #'
 #' @examples
@@ -76,7 +76,7 @@ plot_upset <- function(pa,
 
   # Filter by min_size will be handled by UpSetR parameter
 
-  # Create UpSet plot
+  # Create and return UpSet plot object
   UpSetR::upset(
     upset_df,
     nsets = ncol(upset_df),
@@ -93,6 +93,4 @@ plot_upset <- function(pa,
     text.scale = 1.2,
     ...
   )
-
-  invisible(NULL)
 }

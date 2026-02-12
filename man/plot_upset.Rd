@@ -20,7 +20,7 @@ default) or "degree" (by number of sets in intersection).}
 \item{...}{Additional arguments passed to UpSetR::upset().}
 }
 \value{
-Draws an UpSet plot (base graphics). Returns invisibly.
+An UpSetR plot object (can be printed to display).
 }
 \description{
 Creates an UpSet plot showing intersections of orthogroups across assemblies.
