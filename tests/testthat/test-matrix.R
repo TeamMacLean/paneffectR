@@ -623,3 +623,194 @@ test_that("as.data.frame.pa_matrix defaults to long format", {
   expect_true("assembly" %in% names(df))
   expect_true("value" %in% names(df))
 })
+
+# build_pa_matrix() singleton inclusion tests ---------------------------------
+
+# Helper function to create orthogroup_result with singletons
+make_orthogroup_with_singletons <- function() {
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0001", "OG0002"),
+    assembly = c("asm1", "asm2", "asm1"),
+    protein_id = c("asm1_p1", "asm2_p1", "asm1_p2")
+  )
+  singletons <- tibble::tibble(
+    assembly = c("asm1", "asm2"),
+    protein_id = c("asm1_single1", "asm2_single1")
+  )
+  new_orthogroup_result(orthogroups, method = "test", singletons = singletons)
+}
+
+# Expected matrix with singletons (exclude_singletons = FALSE):
+#               asm1  asm2
+# OG0001           1     1
+# OG0002           1     0
+# OG_single_001    1     0   <- asm1_single1
+# OG_single_002    0     1   <- asm2_single1
+
+# Expected matrix without singletons (exclude_singletons = TRUE):
+#        asm1  asm2
+# OG0001    1     1
+# OG0002    1     0
+
+test_that("build_pa_matrix includes singletons by default", {
+  ort <- make_orthogroup_with_singletons()
+
+  pa <- build_pa_matrix(ort)
+
+  # With 2 singletons included, should have 4 rows (2 OGs + 2 singletons)
+  expect_equal(nrow(pa$matrix), 4)
+})
+
+test_that("build_pa_matrix exclude_singletons = TRUE excludes singletons", {
+  ort <- make_orthogroup_with_singletons()
+
+  pa <- build_pa_matrix(ort, exclude_singletons = TRUE)
+
+  # Without singletons, should have 2 rows
+  expect_equal(nrow(pa$matrix), 2)
+  expect_equal(sort(rownames(pa$matrix)), c("OG0001", "OG0002"))
+})
+
+test_that("singleton orthogroup IDs follow OG_single_XXX pattern", {
+  ort <- make_orthogroup_with_singletons()
+
+  pa <- build_pa_matrix(ort)
+
+  # Get singleton orthogroup IDs
+  og_ids <- rownames(pa$matrix)
+  singleton_ids <- og_ids[grepl("^OG_single_", og_ids)]
+
+  # Should have 2 singleton IDs
+
+  expect_equal(length(singleton_ids), 2)
+
+  # Check pattern: OG_single_001, OG_single_002, etc.
+  expect_true(all(grepl("^OG_single_\\d{3}$", singleton_ids)))
+})
+
+test_that("singleton rows have exactly 1 non-zero cell", {
+  ort <- make_orthogroup_with_singletons()
+
+  pa <- build_pa_matrix(ort)
+
+  # Get singleton rows
+  og_ids <- rownames(pa$matrix)
+  singleton_ids <- og_ids[grepl("^OG_single_", og_ids)]
+
+  # Each singleton row should have exactly one 1 and rest 0s
+  for (sid in singleton_ids) {
+    row_sum <- sum(pa$matrix[sid, ])
+    expect_equal(row_sum, 1)
+  }
+})
+
+test_that("singletons appear in correct assembly columns", {
+  ort <- make_orthogroup_with_singletons()
+
+  pa <- build_pa_matrix(ort)
+
+  # asm1_single1 should be present in asm1 only
+  # asm2_single1 should be present in asm2 only
+  # We need to identify which singleton row corresponds to which protein
+
+  og_ids <- rownames(pa$matrix)
+  singleton_ids <- og_ids[grepl("^OG_single_", og_ids)]
+
+  # One singleton should be in asm1, one in asm2
+  asm1_singletons <- sum(pa$matrix[singleton_ids, "asm1"])
+  asm2_singletons <- sum(pa$matrix[singleton_ids, "asm2"])
+
+  expect_equal(asm1_singletons, 1)
+  expect_equal(asm2_singletons, 1)
+})
+
+test_that("build_pa_matrix works when no singletons present", {
+  # orthogroup_result without singletons
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0001"),
+    assembly = c("asm1", "asm2"),
+    protein_id = c("asm1_p1", "asm2_p1")
+  )
+  ort <- new_orthogroup_result(orthogroups, method = "test")
+
+  # Should work fine with default exclude_singletons = FALSE
+  pa <- build_pa_matrix(ort)
+
+  expect_equal(nrow(pa$matrix), 1)
+  expect_equal(rownames(pa$matrix), "OG0001")
+})
+
+test_that("singleton inclusion works with count type", {
+  ort <- make_orthogroup_with_singletons()
+
+  pa <- build_pa_matrix(ort, type = "count")
+
+  # Singletons should still be included
+  expect_equal(nrow(pa$matrix), 4)
+
+  # Singleton rows should have count of 1
+  og_ids <- rownames(pa$matrix)
+  singleton_ids <- og_ids[grepl("^OG_single_", og_ids)]
+
+  for (sid in singleton_ids) {
+    row_sum <- sum(pa$matrix[sid, ])
+    expect_equal(row_sum, 1)
+  }
+})
+
+test_that("singleton inclusion works with score type", {
+  # Create protein_collection with scores for singletons
+  proteins_asm1 <- tibble::tibble(
+    protein_id = c("asm1_p1", "asm1_p2", "asm1_single1"),
+    sequence = c("AAA", "BBB", "CCC"),
+    custom_score = c(5, 3, 8)  # singleton has score 8
+  )
+  proteins_asm2 <- tibble::tibble(
+    protein_id = c("asm2_p1", "asm2_single1"),
+    sequence = c("DDD", "EEE"),
+    custom_score = c(7, 4)  # singleton has score 4
+  )
+  ps1 <- new_protein_set("asm1", proteins_asm1)
+  ps2 <- new_protein_set("asm2", proteins_asm2)
+  proteins <- new_protein_collection(list(ps1, ps2))
+
+  ort <- make_orthogroup_with_singletons()
+
+  pa <- build_pa_matrix(ort, proteins = proteins, type = "score")
+
+  # Singletons should be included
+  expect_equal(nrow(pa$matrix), 4)
+
+  # Singleton rows should have the correct score
+  og_ids <- rownames(pa$matrix)
+  singleton_ids <- og_ids[grepl("^OG_single_", og_ids)]
+
+  # Collect all non-NA scores from singleton rows
+  all_singleton_scores <- numeric()
+  for (sid in singleton_ids) {
+    row_scores <- pa$matrix[sid, ]
+    row_scores <- row_scores[!is.na(row_scores)]
+    all_singleton_scores <- c(all_singleton_scores, row_scores)
+  }
+
+  # One should have score 8 (asm1_single1), one should have score 4 (asm2_single1)
+  expect_true(8 %in% all_singleton_scores)
+  expect_true(4 %in% all_singleton_scores)
+})
+
+test_that("singleton orthogroups have size 1 in metadata", {
+  ort <- make_orthogroup_with_singletons()
+
+  pa <- build_pa_matrix(ort)
+
+  # Check orthogroups metadata includes singletons
+  singleton_og_ids <- pa$orthogroups$orthogroup_id[grepl("^OG_single_", pa$orthogroups$orthogroup_id)]
+
+  expect_equal(length(singleton_og_ids), 2)
+
+  # Each singleton should have size 1
+  for (sid in singleton_og_ids) {
+    size <- pa$orthogroups$size[pa$orthogroups$orthogroup_id == sid]
+    expect_equal(size, 1)
+  }
+})

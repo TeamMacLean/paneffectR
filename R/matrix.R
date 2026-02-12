@@ -15,6 +15,9 @@ NULL
 #' @param score_column Character. Column name for scores (default: "custom_score").
 #' @param score_threshold Numeric. Only include proteins with score >= threshold.
 #' @param score_aggregation Character. How to aggregate scores: "max", "mean", or "sum".
+#' @param exclude_singletons Logical. If FALSE (default), singletons are included
+#'   as single-member orthogroups with IDs like "OG_single_001". If TRUE,
+#'   singletons are excluded from the matrix.
 #'
 #' @return A `pa_matrix` object.
 #' @export
@@ -23,13 +26,15 @@ NULL
 #' \dontrun{
 #' pa <- build_pa_matrix(clusters)
 #' pa <- build_pa_matrix(clusters, score_threshold = 5.0)
+#' pa <- build_pa_matrix(clusters, exclude_singletons = TRUE)
 #' }
 build_pa_matrix <- function(orthogroups,
                             proteins = NULL,
                             type = "binary",
                             score_column = "custom_score",
                             score_threshold = NULL,
-                            score_aggregation = "max") {
+                            score_aggregation = "max",
+                            exclude_singletons = FALSE) {
   # Validate input is orthogroup_result
   if (!inherits(orthogroups, "orthogroup_result")) {
     cli::cli_abort("{.arg orthogroups} must be an {.cls orthogroup_result} object")
@@ -53,6 +58,25 @@ build_pa_matrix <- function(orthogroups,
 
   # Extract orthogroups tibble
   og_tibble <- orthogroups$orthogroups
+
+  # Include singletons as single-member orthogroups if not excluded
+  if (!exclude_singletons && !is.null(orthogroups$singletons) && nrow(orthogroups$singletons) > 0) {
+    singletons <- orthogroups$singletons
+
+    # Generate singleton orthogroup IDs: OG_single_001, OG_single_002, etc.
+    n_singletons <- nrow(singletons)
+    singleton_ids <- sprintf("OG_single_%03d", seq_len(n_singletons))
+
+    # Create singleton entries in orthogroup format
+    singleton_og_tibble <- tibble::tibble(
+      orthogroup_id = singleton_ids,
+      assembly = singletons$assembly,
+      protein_id = singletons$protein_id
+    )
+
+    # Append to og_tibble
+    og_tibble <- dplyr::bind_rows(og_tibble, singleton_og_tibble)
+  }
 
   # Apply score_threshold filtering if specified
   if (!is.null(score_threshold)) {

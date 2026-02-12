@@ -10,7 +10,8 @@ build_pa_matrix(
   type = "binary",
   score_column = "custom_score",
   score_threshold = NULL,
-  score_aggregation = "max"
+  score_aggregation = "max",
+  exclude_singletons = FALSE
 )
 }
 \arguments{
@@ -25,6 +26,10 @@ build_pa_matrix(
 \item{score_threshold}{Numeric. Only include proteins with score >= threshold.}
 
 \item{score_aggregation}{Character. How to aggregate scores: "max", "mean", or "sum".}
+
+\item{exclude_singletons}{Logical. If FALSE (default), singletons are included
+as single-member orthogroups with IDs like "OG_single_001". If TRUE,
+singletons are excluded from the matrix.}
 }
 \value{
 A \code{pa_matrix} object.
@@ -37,5 +42,6 @@ Can produce binary (0/1), score-based, or count matrices.
 \dontrun{
 pa <- build_pa_matrix(clusters)
 pa <- build_pa_matrix(clusters, score_threshold = 5.0)
+pa <- build_pa_matrix(clusters, exclude_singletons = TRUE)
 }
 }
