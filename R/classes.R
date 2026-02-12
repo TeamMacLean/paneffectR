@@ -349,3 +349,78 @@ print.pa_matrix <- function(x, ...) {
 
   invisible(x)
 }
+
+#' Subset a pa_matrix object
+#'
+#' @param x A `pa_matrix` object.
+#' @param i Row indices (orthogroups).
+#' @param j Column indices (assemblies).
+#' @param drop Ignored (always FALSE to preserve pa_matrix structure).
+#' @param ... Additional arguments (ignored).
+#'
+#' @return A subsetted `pa_matrix` object.
+#' @export
+`[.pa_matrix` <- function(x, i, j, drop = FALSE, ...) {
+  # Handle missing indices
+  if (missing(i)) i <- seq_len(nrow(x$matrix))
+  if (missing(j)) j <- seq_len(ncol(x$matrix))
+
+  # Subset the matrix (drop = FALSE to keep matrix structure)
+  new_mat <- x$matrix[i, j, drop = FALSE]
+
+  # Get the row and column names of the subsetted matrix
+  new_og_ids <- rownames(new_mat)
+  new_asm_names <- colnames(new_mat)
+
+  # Subset orthogroups metadata to match
+  new_orthogroups <- x$orthogroups |>
+    dplyr::filter(.data$orthogroup_id %in% new_og_ids) |>
+    dplyr::arrange(match(.data$orthogroup_id, new_og_ids))
+
+  # Subset assemblies metadata to match
+  new_assemblies <- x$assemblies |>
+    dplyr::filter(.data$assembly_name %in% new_asm_names) |>
+    dplyr::arrange(match(.data$assembly_name, new_asm_names))
+
+  # Return new pa_matrix
+  new_pa_matrix(
+    matrix = new_mat,
+    orthogroups = new_orthogroups,
+    assemblies = new_assemblies,
+    type = x$type,
+    threshold = x$threshold
+  )
+}
+#' Convert pa_matrix to data.frame
+#'
+#' @param x A `pa_matrix` object.
+#' @param row.names Ignored.
+#' @param optional Ignored.
+#' @param format Character. "long" (default) or "wide".
+#' @param ... Additional arguments (ignored).
+#'
+#' @return A data.frame in long or wide format.
+#' @export
+as.data.frame.pa_matrix <- function(x, row.names = NULL, optional = FALSE,
+                                    format = "long", ...) {
+  format <- match.arg(format, c("long", "wide"))
+
+  if (format == "wide") {
+    # Wide format: orthogroup_id + assembly columns
+    df <- as.data.frame(x$matrix)
+    df$orthogroup_id <- rownames(x$matrix)
+    # Reorder columns to put orthogroup_id first
+    df <- df[, c("orthogroup_id", colnames(x$matrix)), drop = FALSE]
+    rownames(df) <- NULL
+  } else {
+    # Long format: orthogroup_id, assembly, value
+    df <- expand.grid(
+      orthogroup_id = rownames(x$matrix),
+      assembly = colnames(x$matrix),
+      stringsAsFactors = FALSE
+    )
+    df$value <- as.vector(x$matrix)
+  }
+
+  df
+}
