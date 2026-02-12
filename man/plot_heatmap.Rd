@@ -11,6 +11,9 @@ plot_heatmap(
   show_row_names = FALSE,
   show_col_names = TRUE,
   color = NULL,
+  row_annotation = NULL,
+  col_annotation = NULL,
+  distance_method = "binary",
   ...
 )
 }
@@ -27,6 +30,15 @@ plot_heatmap(
 
 \item{color}{Character vector or color function. Colors for the heatmap.
 If NULL, auto-detected based on pa$type.}
+
+\item{row_annotation}{A data.frame with row names matching orthogroup IDs.
+Columns become annotation tracks on the left side.}
+
+\item{col_annotation}{A data.frame with row names matching assembly names.
+Columns become annotation tracks on the top.}
+
+\item{distance_method}{Character. Distance metric for clustering:
+"binary" (default), "jaccard", or "bray-curtis".}
 
 \item{...}{Additional arguments passed to ComplexHeatmap::Heatmap().}
 }
