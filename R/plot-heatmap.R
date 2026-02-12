@@ -81,6 +81,24 @@ plot_heatmap <- function(pa,
     cluster_cols <- FALSE
   }
 
+  # Handle NA values for clustering (score matrices have NAs for absent orthogroups)
+  # Pre-compute clustering with NA-safe distance
+  has_na <- any(is.na(pa$matrix))
+  if (has_na && (cluster_rows || cluster_cols)) {
+    # Replace NA with 0 for distance calculation
+    m_clean <- pa$matrix
+    m_clean[is.na(m_clean)] <- 0
+
+    if (cluster_rows && n_rows >= 2) {
+      row_dist <- stats::dist(m_clean, method = "binary")
+      cluster_rows <- stats::hclust(row_dist)
+    }
+    if (cluster_cols && n_cols >= 2) {
+      col_dist <- stats::dist(t(m_clean), method = "binary")
+      cluster_cols <- stats::hclust(col_dist)
+    }
+  }
+
   # Create heatmap
   ComplexHeatmap::Heatmap(
     pa$matrix,
@@ -90,6 +108,7 @@ plot_heatmap <- function(pa,
     show_column_names = show_col_names,
     col = color,
     name = pa$type,
+    na_col = "grey90",
     ...
   )
 }
