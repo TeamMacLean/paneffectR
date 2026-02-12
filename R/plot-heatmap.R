@@ -14,10 +14,11 @@ NULL
 #' @param cluster_cols Logical. Whether to cluster columns (default: TRUE).
 #' @param show_row_names Logical. Whether to show row names (default: FALSE).
 #' @param show_col_names Logical. Whether to show column names (default: TRUE).
-#' @param colors Character vector. Colors for the heatmap.
+#' @param color Character vector or color function. Colors for the heatmap.
+#'   If NULL, auto-detected based on pa$type.
 #' @param ... Additional arguments passed to ComplexHeatmap::Heatmap().
 #'
-#' @return A ComplexHeatmap object.
+#' @return A ComplexHeatmap Heatmap object.
 #' @export
 #'
 #' @examples
@@ -30,7 +31,65 @@ plot_heatmap <- function(pa,
                          cluster_cols = TRUE,
                          show_row_names = FALSE,
                          show_col_names = TRUE,
-                         colors = NULL,
+                         color = NULL,
                          ...) {
-  cli::cli_abort("Not implemented")
+  # Validate input
+ if (!inherits(pa, "pa_matrix")) {
+    cli::cli_abort("{.arg pa} must be a {.cls pa_matrix} object")
+  }
+
+  # Auto-detect color scheme if not provided
+  if (is.null(color)) {
+    max_val <- max(pa$matrix, na.rm = TRUE)
+    min_val <- min(pa$matrix, na.rm = TRUE)
+
+    color <- switch(pa$type,
+      "binary" = c("0" = "white", "1" = "steelblue"),
+      "count" = {
+        # Handle case where all values are the same
+        if (max_val == min_val) {
+          c("white", "steelblue")
+        } else {
+          circlize::colorRamp2(
+            c(0, max_val),
+            c("white", "steelblue")
+          )
+        }
+      },
+      "score" = {
+        # Handle case where all values are the same
+        if (max_val == min_val || is.na(max_val)) {
+          c("white", "firebrick")
+        } else {
+          circlize::colorRamp2(
+            c(0, max_val),
+            c("white", "firebrick")
+          )
+        }
+      }
+    )
+  }
+
+  # Handle edge cases: disable clustering for single row/column
+  n_rows <- nrow(pa$matrix)
+  n_cols <- ncol(pa$matrix)
+
+  if (n_rows < 2) {
+    cluster_rows <- FALSE
+  }
+  if (n_cols < 2) {
+    cluster_cols <- FALSE
+  }
+
+  # Create heatmap
+  ComplexHeatmap::Heatmap(
+    pa$matrix,
+    cluster_rows = cluster_rows,
+    cluster_columns = cluster_cols,
+    show_row_names = show_row_names,
+    show_column_names = show_col_names,
+    col = color,
+    name = pa$type,
+    ...
+  )
 }

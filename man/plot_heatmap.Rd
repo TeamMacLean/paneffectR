@@ -10,7 +10,7 @@ plot_heatmap(
   cluster_cols = TRUE,
   show_row_names = FALSE,
   show_col_names = TRUE,
-  colors = NULL,
+  color = NULL,
   ...
 )
 }
@@ -25,12 +25,13 @@ plot_heatmap(
 
 \item{show_col_names}{Logical. Whether to show column names (default: TRUE).}
 
-\item{colors}{Character vector. Colors for the heatmap.}
+\item{color}{Character vector or color function. Colors for the heatmap.
+If NULL, auto-detected based on pa$type.}
 
 \item{...}{Additional arguments passed to ComplexHeatmap::Heatmap().}
 }
 \value{
-A ComplexHeatmap object.
+A ComplexHeatmap Heatmap object.
 }
 \description{
 Creates a heatmap visualization of the presence/absence matrix using
