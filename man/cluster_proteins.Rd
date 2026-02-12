@@ -6,49 +6,71 @@
 \usage{
 cluster_proteins(
   proteins,
-  method = c("diamond_rbh", "orthofinder", "mmseqs2", "precomputed"),
-  mode = c("fast", "thorough"),
-  min_identity = 70,
+  method = "diamond_rbh",
+  mode = "fast",
+  min_identity = 30,
   min_coverage = 50,
-  reference = NULL,
+  evalue = 1e-05,
   threads = NULL,
   tool_path = NULL,
   conda_env = NULL,
-  ...
+  keep_temp = FALSE
 )
 }
 \arguments{
-\item{proteins}{A \code{protein_collection} object.}
+\item{proteins}{A protein_collection object}
 
-\item{method}{Character. Clustering method: "diamond_rbh" (default),
-"orthofinder", "mmseqs2", or "precomputed".}
+\item{method}{Clustering method: "diamond_rbh" (default), "orthofinder", or "mmseqs2"}
 
-\item{mode}{Character. Speed/sensitivity trade-off: "fast" or "thorough".}
+\item{mode}{Speed/sensitivity trade-off: "fast" (default) or "thorough"}
 
-\item{min_identity}{Numeric. Minimum sequence identity percent (default: 70).}
+\item{min_identity}{Minimum percent identity threshold (default 30)}
 
-\item{min_coverage}{Numeric. Minimum query coverage percent (default: 50).}
+\item{min_coverage}{Minimum query coverage threshold (default 50)}
 
-\item{reference}{Character. Optional assembly name for reference-based comparison.}
+\item{evalue}{E-value threshold (default 1e-5)}
 
-\item{threads}{Integer. Number of CPU threads (default: auto-detect).}
+\item{threads}{Number of CPU threads (default: auto-detect)}
 
-\item{tool_path}{Character. Optional explicit path to the clustering tool.}
+\item{tool_path}{Optional explicit path to the clustering tool binary}
 
-\item{conda_env}{Character. Optional conda environment containing the tool.}
+\item{conda_env}{Optional path to conda/mamba environment containing the tool}
 
-\item{...}{Additional arguments passed to the clustering backend.}
+\item{keep_temp}{Keep temporary files for debugging (default FALSE)}
 }
 \value{
-An \code{orthogroup_result} object.
+An orthogroup_result object containing:
+\itemize{
+\item orthogroups: tibble with orthogroup_id, assembly, protein_id
+\item method: the clustering method used
+\item parameters: list of parameters used
+\item singletons: proteins not assigned to any orthogroup
+}
 }
 \description{
-Groups proteins into orthogroups using sequence similarity. Supports
-multiple backends: DIAMOND reciprocal best hits, OrthoFinder, or MMseqs2.
+Groups proteins from a protein_collection into orthogroups using
+sequence similarity. Multiple clustering methods are available.
 }
 \examples{
 \dontrun{
-clusters <- cluster_proteins(proteins, method = "diamond_rbh")
-clusters <- cluster_proteins(proteins, method = "mmseqs2", mode = "fast")
+# Load proteins
+proteins <- load_proteins(fasta_dir = "assemblies/")
+
+# Cluster with default settings (DIAMOND RBH)
+result <- cluster_proteins(proteins)
+
+# Use thorough mode with stricter thresholds
+result <- cluster_proteins(
+  proteins,
+  mode = "thorough",
+  min_identity = 70,
+  min_coverage = 80
+)
+
+# Use a conda environment
+result <- cluster_proteins(
+  proteins,
+  conda_env = "./this_project_env"
+)
 }
 }

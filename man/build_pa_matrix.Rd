@@ -5,23 +5,26 @@
 \title{Build presence/absence matrix from clustering results}
 \usage{
 build_pa_matrix(
-  clusters,
+  orthogroups,
   proteins = NULL,
-  score_threshold = NULL,
+  type = "binary",
   score_column = "custom_score",
-  type = c("binary", "score", "count")
+  score_threshold = NULL,
+  score_aggregation = "max"
 )
 }
 \arguments{
-\item{clusters}{An \code{orthogroup_result} object.}
+\item{orthogroups}{An \code{orthogroup_result} object.}
 
 \item{proteins}{Optional \code{protein_collection} with score data.}
 
-\item{score_threshold}{Numeric. Only include proteins with score >= threshold.}
+\item{type}{Character. Matrix type: "binary", "count", or "score".}
 
 \item{score_column}{Character. Column name for scores (default: "custom_score").}
 
-\item{type}{Character. Matrix type: "binary", "score", or "count".}
+\item{score_threshold}{Numeric. Only include proteins with score >= threshold.}
+
+\item{score_aggregation}{Character. How to aggregate scores: "max", "mean", or "sum".}
 }
 \value{
 A \code{pa_matrix} object.
