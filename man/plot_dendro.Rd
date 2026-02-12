@@ -6,25 +6,28 @@
 \usage{
 plot_dendro(
   pa,
-  method = c("jaccard", "bray-curtis"),
-  cluster_method = "average",
-  labels = NULL,
-  ...
+  distance_method = "jaccard",
+  cluster_method = "complete",
+  labels = TRUE,
+  hang = 0.1
 )
 }
 \arguments{
 \item{pa}{A \code{pa_matrix} object.}
 
-\item{method}{Character. Distance metric: "jaccard" (default) or "bray-curtis".}
+\item{distance_method}{Character. Distance metric: "jaccard" (default),
+"binary", or "bray-curtis".}
 
-\item{cluster_method}{Character. Clustering method for hclust (default: "average").}
+\item{cluster_method}{Character. Clustering method for hclust
+(default: "complete"). Options: "complete", "single", "average", "ward.D2".}
 
-\item{labels}{Character vector. Optional custom labels for assemblies.}
+\item{labels}{Logical. Whether to show assembly labels (default: TRUE).}
 
-\item{...}{Additional arguments passed to plot().}
+\item{hang}{Numeric. Fraction of plot height to hang labels below leaves
+(default: 0.1).}
 }
 \value{
-Invisibly returns the hclust object.
+A ggplot2 object.
 }
 \description{
 Clusters assemblies by shared orthogroup content and displays as a dendrogram.
@@ -32,6 +35,7 @@ Clusters assemblies by shared orthogroup content and displays as a dendrogram.
 \examples{
 \dontrun{
 plot_dendro(pa)
-plot_dendro(pa, method = "bray-curtis")
+plot_dendro(pa, distance_method = "bray-curtis")
+plot_dendro(pa, cluster_method = "ward.D2")
 }
 }
