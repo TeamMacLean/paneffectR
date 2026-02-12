@@ -7,10 +7,9 @@
 plot_scores(
   proteins,
   score_column = "custom_score",
-  type = c("density", "histogram"),
-  facet = FALSE,
+  by_assembly = FALSE,
   threshold = NULL,
-  ...
+  plot_type = "density"
 )
 }
 \arguments{
@@ -18,23 +17,25 @@ plot_scores(
 
 \item{score_column}{Character. Column name for scores (default: "custom_score").}
 
-\item{type}{Character. Plot type: "density" or "histogram".}
+\item{by_assembly}{Logical. Whether to facet by assembly (default: FALSE).
+If TRUE, creates separate panels for each assembly.}
 
-\item{facet}{Logical. Whether to facet by assembly (default: FALSE).}
+\item{threshold}{Numeric or NULL. If specified, draws a vertical line at this
+value to show where a score cutoff would fall.}
 
-\item{threshold}{Numeric. Optional threshold line to draw.}
-
-\item{...}{Additional arguments passed to ggplot2 functions.}
+\item{plot_type}{Character. Plot type: "density" (default) or "histogram".}
 }
 \value{
 A ggplot2 object.
 }
 \description{
-Creates density plots or histograms of effector scores per assembly.
+Creates density plots or histograms of effector scores from a protein collection.
 }
 \examples{
 \dontrun{
 plot_scores(proteins)
 plot_scores(proteins, threshold = 5.0)
+plot_scores(proteins, by_assembly = TRUE)
+plot_scores(proteins, plot_type = "histogram")
 }
 }
