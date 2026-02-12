@@ -357,3 +357,123 @@ test_that("build_pa_matrix score type works with custom score column", {
 
   expect_equal(pa$matrix["OG0001", "asm1"], 20)
 })
+
+# build_pa_matrix() score_threshold tests --------------------------------------
+
+# Test data reminder (from make_scored_* helpers):
+# OG0001: asm1_p1 (score=5), asm1_p2 (score=8), asm2_p1 (score=7) → max=8
+# OG0002: asm1_p3 (score=3) → max=3
+#
+# With threshold=5:
+# - OG0001 kept (max 8 >= 5)
+# - OG0002 filtered out (max 3 < 5)
+
+test_that("score_threshold requires proteins argument", {
+  ort <- make_scored_orthogroup_result()
+
+  expect_error(
+    build_pa_matrix(ort, proteins = NULL, score_threshold = 5),
+    regexp = "proteins"
+  )
+})
+
+test_that("score_threshold filters orthogroups correctly", {
+  ort <- make_scored_orthogroup_result()
+  proteins <- make_scored_protein_collection()
+
+  pa <- build_pa_matrix(ort, proteins = proteins, score_threshold = 5)
+
+  # Only OG0001 should remain (max score 8 >= 5)
+  # OG0002 filtered out (max score 3 < 5)
+  expect_equal(nrow(pa$matrix), 1)
+  expect_equal(rownames(pa$matrix), "OG0001")
+})
+
+test_that("score_threshold works with binary type", {
+  ort <- make_scored_orthogroup_result()
+  proteins <- make_scored_protein_collection()
+
+  pa <- build_pa_matrix(ort, proteins = proteins, type = "binary",
+                        score_threshold = 5)
+
+  # Binary matrix with only OG0001
+  expect_equal(nrow(pa$matrix), 1)
+  expect_equal(pa$matrix["OG0001", "asm1"], 1)
+  expect_equal(pa$matrix["OG0001", "asm2"], 1)
+  expect_equal(pa$type, "binary")
+})
+
+test_that("score_threshold works with count type", {
+  ort <- make_scored_orthogroup_result()
+  proteins <- make_scored_protein_collection()
+
+  pa <- build_pa_matrix(ort, proteins = proteins, type = "count",
+                        score_threshold = 5)
+
+  # Count matrix with only OG0001
+  # OG0001 has 2 proteins in asm1, 1 in asm2
+  expect_equal(nrow(pa$matrix), 1)
+  expect_equal(pa$matrix["OG0001", "asm1"], 2)
+  expect_equal(pa$matrix["OG0001", "asm2"], 1)
+  expect_equal(pa$type, "count")
+})
+
+test_that("score_threshold works with score type", {
+  ort <- make_scored_orthogroup_result()
+  proteins <- make_scored_protein_collection()
+
+  pa <- build_pa_matrix(ort, proteins = proteins, type = "score",
+                        score_threshold = 5, score_aggregation = "max")
+
+  # Score matrix with only OG0001
+  expect_equal(nrow(pa$matrix), 1)
+  expect_equal(pa$matrix["OG0001", "asm1"], 8)  # max(5, 8)
+  expect_equal(pa$matrix["OG0001", "asm2"], 7)
+  expect_equal(pa$type, "score")
+})
+
+test_that("score_threshold uses max score per orthogroup", {
+  ort <- make_scored_orthogroup_result()
+  proteins <- make_scored_protein_collection()
+
+  # Threshold of 6: OG0001 max is 8 (passes), even though asm1_p1 has score 5
+  pa <- build_pa_matrix(ort, proteins = proteins, score_threshold = 6)
+
+  expect_equal(nrow(pa$matrix), 1)
+  expect_equal(rownames(pa$matrix), "OG0001")
+})
+
+test_that("score_threshold stored in result", {
+  ort <- make_scored_orthogroup_result()
+  proteins <- make_scored_protein_collection()
+
+  pa <- build_pa_matrix(ort, proteins = proteins, score_threshold = 5)
+
+  expect_equal(pa$threshold, 5)
+})
+
+test_that("score_threshold with custom score_column", {
+  # Create protein collection with different score column name
+  proteins_asm1 <- tibble::tibble(
+    protein_id = c("asm1_p1", "asm1_p2"),
+    sequence = c("AAA", "BBB"),
+    my_score = c(10, 2)  # p1 high, p2 low
+  )
+  ps1 <- new_protein_set("asm1", proteins_asm1)
+  proteins <- new_protein_collection(list(ps1))
+
+  orthogroups <- tibble::tibble(
+    orthogroup_id = c("OG0001", "OG0002"),
+    assembly = c("asm1", "asm1"),
+    protein_id = c("asm1_p1", "asm1_p2")
+  )
+  ort <- new_orthogroup_result(orthogroups, method = "test")
+
+  # Threshold 5 with my_score column
+  pa <- build_pa_matrix(ort, proteins = proteins, score_threshold = 5,
+                        score_column = "my_score")
+
+  # Only OG0001 should remain (score 10 >= 5)
+  expect_equal(nrow(pa$matrix), 1)
+  expect_equal(rownames(pa$matrix), "OG0001")
+})
