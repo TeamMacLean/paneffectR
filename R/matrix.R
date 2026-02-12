@@ -46,8 +46,31 @@ build_pa_matrix <- function(orthogroups,
     cli::cli_abort("Type {.val score} requires {.arg proteins} argument")
   }
 
+  # score_threshold requires proteins argument
+  if (!is.null(score_threshold) && is.null(proteins)) {
+    cli::cli_abort("{.arg score_threshold} requires {.arg proteins} argument")
+  }
+
   # Extract orthogroups tibble
   og_tibble <- orthogroups$orthogroups
+
+  # Apply score_threshold filtering if specified
+  if (!is.null(score_threshold)) {
+    score_lookup <- build_score_lookup(proteins, score_column)
+
+    # Calculate max score per orthogroup
+    og_max_scores <- og_tibble |>
+      dplyr::mutate(score = score_lookup[.data$protein_id]) |>
+      dplyr::group_by(.data$orthogroup_id) |>
+      dplyr::summarise(max_score = max(.data$score, na.rm = TRUE), .groups = "drop")
+
+    # Keep only orthogroups meeting threshold
+    passing_ogs <- og_max_scores$orthogroup_id[og_max_scores$max_score >= score_threshold]
+
+    # Filter orthogroups tibble
+    og_tibble <- og_tibble |>
+      dplyr::filter(.data$orthogroup_id %in% passing_ogs)
+  }
 
   # Get unique orthogroup IDs and assembly names
   og_ids <- unique(og_tibble$orthogroup_id)
