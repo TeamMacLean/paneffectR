@@ -5,38 +5,15 @@
 .Ruserdata
 *.Rproj
 
-# renv
-renv/library/
-renv/staging/
-renv/sandbox/
-
 # Build artifacts
+src/*.o
+src/*.so
+src/*.dll
+
+# Documentation artifacts
+docs/
+doc/
+Meta/
+
+# Package builds
 *.tar.gz
-*.Rcheck/
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Local/working files
-.Rprofile
-sample_data/
-next_session.md
-semi-autonomous-feature-development.md
-similar_CLAUDE.md
-/doc/
-/Meta/
-
-# Mamba environment (large, reproducible from yaml)
-this_project_env/
-
-# Claude Code local settings
-.claude/
-
-# Generated HTML from Rmd
-dev/*.html
-Rplots.pdf
