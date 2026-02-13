@@ -26,3 +26,10 @@ Locates an external bioinformatics tool using a hybrid resolution strategy:
 \item System PATH as fallback
 }
 }
+\examples{
+\dontrun{
+find_tool("diamond")
+find_tool("diamond", conda_env = "bioinf")
+find_tool("diamond", tool_path = "/opt/diamond/diamond")
+}
+}

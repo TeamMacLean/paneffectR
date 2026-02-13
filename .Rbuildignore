@@ -21,3 +21,8 @@
 ^dev$
 ^specs$
 ^next_prompt\.md$
+^_pkgdown\.yml$
+^data-raw$
+^Rplots\.pdf$
+^pkgdown$
+^\.DS_Store$

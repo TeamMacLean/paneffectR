@@ -1,0 +1,301 @@
+---
+title: "Effector Analysis with paneffectR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Effector Analysis with paneffectR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+## Introduction
+
+This vignette demonstrates how to use paneffectR with output from the [omnieff](https://github.com/TeamMacLean/omnieff) effector prediction pipeline. The key advantage is the ability to **filter by effector prediction scores**, focusing your analysis on high-confidence effector candidates.
+
+## The omnieff Pipeline
+
+omnieff runs multiple effector prediction tools and combines their results:
+
+- **Signal peptide predictors**: SignalP 3/4/5/6, Phobius
+- **Effector predictors**: EffectorP 1/2/3, DeepRedEff
+- **Localization**: ApoplastP, Localizer
+- **Domain annotations**: Pfam
+
+The output includes:
+
+1. **FASTA files** (`*_reformatted.faa`): Protein sequences with standardized names
+2. **Score files** (`*_scored.csv`): All prediction scores plus a combined `custom_score`
+3. **Name mapping** (`*_name_mapping.csv`): Links new names to original contig names
+
+## Setup
+
+```{r setup}
+library(paneffectR)
+library(dplyr)
+```
+
+## Loading omnieff Output
+
+Use `load_proteins()` with both FASTA and score directories:
+
+```{r load-data}
+# Get path to test data (simulates omnieff output structure)
+testdata_dir <- system.file("testdata", package = "paneffectR")
+
+# Load with scores
+proteins <- load_proteins(
+  fasta_dir = testdata_dir,
+  score_dir = testdata_dir,
+  pattern = "*.faa"
+)
+proteins
+```
+
+Notice that `has_scores` is TRUE for all assemblies.
+
+## Understanding Score Columns
+
+The score data contains many columns from different prediction tools:
+
+```{r score-columns}
+# Get one assembly to explore
+ps <- proteins$assemblies[["assembly1"]]
+
+# All available columns
+names(ps$proteins)
+```
+
+### Key Score Columns
+
+| Column | Description |
+|--------|-------------|
+| `custom_score` | Combined effector score (higher = more likely effector) |
+| `score_rank` | Rank by custom_score (1 = highest) |
+| `effectorp1_prob` | EffectorP v1 probability |
+| `effectorp2_prob` | EffectorP v2 probability |
+| `effectorp3_prediction_fungal` | EffectorP v3 category (fungal mode) |
+| `deepredeff_fungi` | DeepRedEff fungal score |
+| `signalp5_d` | SignalP5 D-score |
+
+### Exploring Score Distributions
+
+```{r explore-scores}
+# Top-scoring proteins in assembly1
+ps$proteins %>%
+  arrange(score_rank) %>%
+  select(protein_id, custom_score, score_rank,
+         effectorp2_prob, signalp5_d) %>%
+  head(10)
+```
+
+## Visualizing Score Distributions
+
+Before filtering, understand your score distributions:
+
+```{r score-plots}
+# Overall distribution
+plot_scores(proteins)
+
+# By assembly
+plot_scores(proteins, by_assembly = TRUE)
+```
+
+### Choosing a Threshold
+
+The `custom_score` combines multiple predictors. Higher scores indicate stronger effector evidence. Use a threshold to focus on high-confidence candidates:
+```{r score-threshold-viz}
+# Show threshold line at score = 5
+plot_scores(proteins, threshold = 5.0)
+
+# Histogram view
+plot_scores(proteins, plot_type = "histogram", threshold = 5.0)
+```
+
+## Clustering and Filtering
+
+### Basic Clustering
+
+```{r clustering, eval=FALSE}
+# Cluster all proteins (requires DIAMOND)
+clusters <- cluster_proteins(proteins, method = "diamond_rbh")
+```
+
+For this vignette, we'll use pre-computed clusters:
+
+```{r load-clusters}
+visual_dir <- system.file("testdata", "visual", package = "paneffectR")
+clusters <- readRDS(file.path(visual_dir, "clusters_visual.rds"))
+```
+
+### Building a Filtered Matrix
+
+Filter to only high-confidence effectors when building the matrix:
+
+```{r filtered-matrix}
+# Load the proteins that match the clusters
+proteins_visual <- readRDS(file.path(visual_dir, "proteins_visual.rds"))
+
+# Build matrix with score threshold
+# Only orthogroups containing proteins with score >= 3 are included
+pa_filtered <- build_pa_matrix(
+  clusters,
+  type = "binary",
+  score_threshold = 3.0,
+  proteins = proteins_visual
+)
+pa_filtered
+```
+
+Compare with unfiltered:
+
+```{r compare-filtered}
+pa_all <- build_pa_matrix(clusters, type = "binary")
+
+cat("All orthogroups:", nrow(pa_all$matrix), "\n")
+cat("After score filter:", nrow(pa_filtered$matrix), "\n")
+```
+
+## Score-Based Matrix
+
+Instead of binary presence/absence, you can create a matrix with actual scores:
+
+```{r score-matrix}
+# Use maximum score per orthogroup per assembly
+pa_score <- build_pa_matrix(
+  clusters,
+  type = "score",
+  score_column = "custom_score",
+  proteins = proteins_visual
+)
+
+# View scores (0 = absent, otherwise the score value)
+pa_score$matrix[1:5, ]
+```
+
+This is useful when you want to see not just presence/absence, but how strongly each orthogroup is predicted as an effector in each assembly.
+
+## Visualizing Effector Repertoires
+
+### Heatmap with Score Colors
+
+```{r heatmap-scores}
+# Binary heatmap (presence/absence)
+ht <- plot_heatmap(
+  pa_filtered,
+  cluster_rows = TRUE,
+  cluster_cols = TRUE,
+  show_row_names = FALSE,
+  color = c("white", "darkred")
+)
+ComplexHeatmap::draw(ht)
+```
+
+### UpSet Plot for Effector Sharing
+
+Which effectors are shared vs unique?
+
+```{r upset-effectors}
+plot_upset(pa_filtered, min_size = 1)
+```
+
+### Assembly Similarity
+
+How similar are the effector repertoires between assemblies?
+
+```{r dendro-effectors}
+plot_dendro(pa_filtered, distance_method = "jaccard")
+```
+
+## Identifying Core vs Accessory Effectors
+
+### Core Effectors
+
+Present in all assemblies - likely essential for pathogenicity:
+
+```{r core-effectors}
+# Find orthogroups present in all assemblies
+n_assemblies <- ncol(pa_filtered$matrix)
+presence_count <- rowSums(pa_filtered$matrix)
+core_og <- names(presence_count[presence_count == n_assemblies])
+
+cat("Core effector orthogroups:", length(core_og), "\n")
+cat("Names:", paste(core_og, collapse = ", "), "\n")
+```
+
+### Accessory Effectors
+
+Present in some but not all assemblies:
+
+```{r accessory-effectors}
+accessory_og <- names(presence_count[presence_count > 1 & presence_count < n_assemblies])
+cat("Accessory effector orthogroups:", length(accessory_og), "\n")
+```
+
+### Unique Effectors (Singletons)
+
+Present in only one assembly - may contribute to host specificity:
+
+```{r unique-effectors}
+unique_og <- names(presence_count[presence_count == 1])
+cat("Unique effector orthogroups:", length(unique_og), "\n")
+
+# Which assemblies have them?
+unique_assemblies <- apply(pa_filtered$matrix[unique_og, , drop = FALSE], 1, function(x) {
+  names(x)[x == 1]
+})
+table(unlist(unique_assemblies))
+```
+
+## Exporting Results
+
+### Export to CSV
+
+```{r export, eval=FALSE}
+# Export presence/absence matrix
+write.csv(
+  as.data.frame(pa_filtered),
+  "effector_presence_absence.csv"
+)
+
+# Export orthogroup membership
+write.csv(
+  clusters$orthogroups,
+  "orthogroup_membership.csv",
+  row.names = FALSE
+)
+```
+
+### Get Proteins from Specific Orthogroups
+
+```{r get-proteins}
+# Get proteins from core orthogroups
+core_proteins <- clusters$orthogroups %>%
+  filter(orthogroup_id %in% core_og)
+
+head(core_proteins)
+```
+
+## Summary
+
+Key steps for effector analysis:
+
+1. Load omnieff output with `load_proteins(fasta_dir, score_dir)`
+2. Explore scores with `plot_scores()`
+3. Cluster with `cluster_proteins()`
+4. Filter by score in `build_pa_matrix(score_threshold = ...)`
+5. Visualize with `plot_heatmap()`, `plot_upset()`, `plot_dendro()`
+6. Identify core/accessory/unique effectors
+
+## Next Steps
+
+- **[Getting Started](getting-started.html)** - Basic workflow overview
+- **[Pan-Genome Analysis](pan-genome.html)** - Analysis without scores
+- **[Algorithm Deep Dive](algorithms.html)** - Technical details on clustering

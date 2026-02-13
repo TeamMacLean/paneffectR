@@ -1,0 +1,115 @@
+url: https://USER.github.io/paneffectR/
+
+template:
+  bootstrap: 5
+  bootswatch: flatly
+
+navbar:
+  structure:
+    left: [intro, reference, articles]
+    right: [search, github]
+  components:
+    articles:
+      text: Vignettes
+      menu:
+        - text: Getting Started
+          href: articles/getting-started.html
+        - text: "---"
+        - text: Workflows
+        - text: Effector Analysis
+          href: articles/effector-analysis.html
+        - text: Pan-Genome Analysis
+          href: articles/pan-genome.html
+        - text: "---"
+        - text: Technical
+        - text: Algorithm Deep Dive
+          href: articles/algorithms.html
+
+home:
+  title: paneffectR
+  description: Comparative genomics of effector proteins across multiple genome assemblies
+
+reference:
+  - title: Loading Data
+    desc: >
+      Functions for loading protein sequences and effector prediction scores
+      from FASTA files and omnieff output.
+    contents:
+      - load_proteins
+      - load_fasta
+      - load_scores
+      - load_name_mapping
+
+  - title: Creating Objects
+    desc: >
+      Constructors for the core S3 classes used throughout the package.
+    contents:
+      - new_protein_set
+      - new_protein_collection
+      - new_orthogroup_result
+      - new_pa_matrix
+
+  - title: Clustering
+    desc: >
+      Functions for clustering proteins into orthogroups using
+      sequence similarity.
+    contents:
+      - cluster_proteins
+
+  - title: Matrix Building
+    desc: >
+      Build presence/absence matrices from clustering results.
+    contents:
+      - build_pa_matrix
+
+  - title: Singletons
+    desc: >
+      Functions for working with unclustered proteins (singletons).
+    contents:
+      - get_singletons
+      - n_singletons
+      - singletons_by_assembly
+
+  - title: Visualization
+    desc: >
+      Publication-ready plots for exploring presence/absence patterns.
+    contents:
+      - plot_heatmap
+      - plot_upset
+      - plot_scores
+      - plot_dendro
+
+  - title: Utilities
+    desc: >
+      Helper functions for external tool management.
+    contents:
+      - check_tool_installed
+      - find_tool
+
+articles:
+  - title: Getting Started
+    navbar: ~
+    contents:
+      - getting-started
+
+  - title: Workflows
+    desc: Step-by-step guides for common analysis scenarios
+    contents:
+      - effector-analysis
+      - pan-genome
+
+  - title: Technical
+    desc: In-depth explanations of algorithms and methods
+    contents:
+      - algorithms
+
+authors:
+  Dan MacLean:
+    href: https://github.com/danmaclean
+
+figures:
+  dev: ragg::agg_png
+  dpi: 150
+  fig.ext: png
+  fig.width: 7
+  fig.height: 5

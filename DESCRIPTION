@@ -1,8 +1,9 @@
 Package: paneffectR
 Title: Comparative Genomics of Effector Proteins Across Genome Assemblies
-Version: 0.0.0.9000
+Version: 0.1.0
 Authors@R: person("Dan", "MacLean", email = "dan.maclean@tsl.ac.uk",
-                  role = c("aut", "cre"))
+                  role = c("aut", "cre"),
+                  comment = c(ORCID = "0000-0003-1174-3654"))
 Author: Dan MacLean [aut, cre]
 Maintainer: Dan MacLean <dan.maclean@tsl.ac.uk>
 Description: Clusters proteins from multiple genome assemblies into ortholog
@@ -10,6 +11,8 @@ Description: Clusters proteins from multiple genome assemblies into ortholog
     visualizations. Designed for effector protein analysis from the omnieff
     pipeline but works with any protein sets.
 License: MIT + file LICENSE
+URL: https://github.com/USER/paneffectR, https://USER.github.io/paneffectR/
+BugReports: https://github.com/USER/paneffectR/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
@@ -30,7 +33,9 @@ Suggests:
     testthat (>= 3.0.0),
     knitr,
     rmarkdown,
-    BiocManager
+    BiocManager,
+    covr,
+    ragg
 Remotes:
     bioc::ComplexHeatmap,
     bioc::Biostrings

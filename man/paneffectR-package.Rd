@@ -6,10 +6,21 @@
 \alias{paneffectR-package}
 \title{paneffectR: Comparative Genomics of Effector Proteins Across Genome Assemblies}
 \description{
+\if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
+
 Clusters proteins from multiple genome assemblies into ortholog groups, builds presence/absence matrices, and generates publication-ready visualizations. Designed for effector protein analysis from the omnieff pipeline but works with any protein sets.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/USER/paneffectR}
+  \item \url{https://USER.github.io/paneffectR/}
+  \item Report bugs at \url{https://github.com/USER/paneffectR/issues}
+}
+
+}
 \author{
-\strong{Maintainer}: Dan MacLean \email{dan.maclean@tsl.ac.uk}
+\strong{Maintainer}: Dan MacLean \email{dan.maclean@tsl.ac.uk} (\href{https://orcid.org/0000-0003-1174-3654}{ORCID})
 
 }
 \keyword{internal}

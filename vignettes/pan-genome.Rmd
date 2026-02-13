@@ -1,0 +1,325 @@
+---
+title: "Pan-Genome Analysis with paneffectR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Pan-Genome Analysis with paneffectR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+## Introduction
+While paneffectR was designed for effector analysis, it works equally well for **general pan-genome comparisons** with any protein FASTA files. This vignette demonstrates how to:
+
+- Compare protein content across genome assemblies
+- Identify core, accessory, and unique proteins
+- Visualize pan-genome structure
+
+No effector scores are required.
+
+## Pan-Genome Concepts
+
+A pan-genome represents the complete gene content across a set of related genomes:
+
+- **Core genome**: Genes present in all (or nearly all) genomes - essential functions
+- **Accessory genome**: Genes present in some genomes - niche adaptation, lifestyle
+- **Unique genes**: Present in only one genome - strain-specific features
+
+paneffectR helps you explore this structure through presence/absence analysis.
+
+## Setup
+
+```{r setup}
+library(paneffectR)
+library(dplyr)
+```
+
+## Loading FASTA Files
+
+For pan-genome analysis, you only need FASTA files:
+
+```{r load-data}
+# Get path to test data
+testdata_dir <- system.file("testdata", package = "paneffectR")
+
+# Load FASTAs only (no scores)
+proteins <- load_proteins(
+  fasta_dir = testdata_dir,
+  pattern = "*.faa"
+)
+proteins
+```
+
+Note: Even though our test data has scores available, we're ignoring them for this analysis.
+
+### Protein ID Requirements
+
+Protein IDs must be **unique across all assemblies**. If your FASTAs have generic headers like `>protein_001`, you'll need to prefix them with assembly names.
+
+paneffectR validates this automatically:
+
+```{r validation, error=TRUE}
+# This would fail if IDs weren't unique
+# (our test data already has unique IDs like "assembly1_000001")
+head(proteins$assemblies[[1]]$proteins$protein_id)
+```
+
+## Clustering Proteins
+
+Group proteins from different assemblies into orthogroups:
+
+```{r clustering, eval=FALSE}
+# Cluster using DIAMOND reciprocal best hits
+clusters <- cluster_proteins(proteins, method = "diamond_rbh")
+```
+
+For this vignette, we'll use pre-computed clusters:
+
+```{r load-clusters}
+visual_dir <- system.file("testdata", "visual", package = "paneffectR")
+clusters <- readRDS(file.path(visual_dir, "clusters_visual.rds"))
+clusters
+```
+
+### Understanding the Results
+
+```{r cluster-results}
+# Orthogroup statistics
+clusters$stats
+
+# How many singletons (unique proteins)?
+n_singletons(clusters)
+
+# Singletons per assembly
+singletons_by_assembly(clusters)
+```
+
+## Building the Presence/Absence Matrix
+
+Create a binary matrix showing which orthogroups are in which assemblies:
+
+```{r build-matrix}
+pa <- build_pa_matrix(clusters, type = "binary")
+pa
+
+# Include singletons (default) or exclude them
+pa_no_singletons <- build_pa_matrix(
+  clusters,
+  type = "binary",
+  exclude_singletons = TRUE
+)
+
+cat("With singletons:", nrow(pa$matrix), "orthogroups\n")
+cat("Without singletons:", nrow(pa_no_singletons$matrix), "orthogroups\n")
+```
+
+## Analyzing Pan-Genome Structure
+
+### Core Genome
+
+Proteins present in all assemblies:
+
+```{r core}
+n_assemblies <- ncol(pa$matrix)
+presence_count <- rowSums(pa$matrix)
+
+# Core = present in all
+core_og <- names(presence_count[presence_count == n_assemblies])
+cat("Core orthogroups:", length(core_og), "of", length(presence_count), "\n")
+cat("Core percentage:", round(100 * length(core_og) / length(presence_count), 1), "%\n")
+```
+
+### Accessory Genome
+
+Proteins present in some but not all assemblies:
+
+```{r accessory}
+# Accessory = present in 2 to (n-1) assemblies
+accessory_og <- names(presence_count[presence_count > 1 & presence_count < n_assemblies])
+cat("Accessory orthogroups:", length(accessory_og), "\n")
+cat("Accessory percentage:", round(100 * length(accessory_og) / length(presence_count), 1), "%\n")
+```
+
+### Unique Genes
+
+Proteins present in only one assembly (including singletons):
+
+```{r unique}
+unique_og <- names(presence_count[presence_count == 1])
+cat("Unique orthogroups:", length(unique_og), "\n")
+cat("Unique percentage:", round(100 * length(unique_og) / length(presence_count), 1), "%\n")
+```
+
+### Pan-Genome Summary
+
+```{r summary-table}
+pan_summary <- data.frame(
+  Category = c("Core", "Accessory", "Unique", "Total"),
+  Count = c(length(core_og), length(accessory_og), length(unique_og), length(presence_count)),
+  Percentage = c(
+    round(100 * length(core_og) / length(presence_count), 1),
+    round(100 * length(accessory_og) / length(presence_count), 1),
+    round(100 * length(unique_og) / length(presence_count), 1),
+    100
+  )
+)
+pan_summary
+```
+
+## Visualizing the Pan-Genome
+
+### Heatmap
+
+The heatmap shows presence (colored) and absence (white) patterns:
+
+```{r heatmap}
+ht <- plot_heatmap(
+  pa,
+  cluster_rows = TRUE,
+  cluster_cols = TRUE,
+  show_row_names = FALSE,
+  color = c("white", "steelblue")
+)
+ComplexHeatmap::draw(ht)
+```
+
+### UpSet Plot
+
+UpSet plots excel at showing intersections - which orthogroups are shared between which combinations of assemblies:
+
+```{r upset}
+# Show all intersections with at least 1 orthogroup
+plot_upset(pa, min_size = 1)
+```
+
+The bars show:
+- How many orthogroups are unique to each assembly
+- How many are shared between specific combinations
+- How many are in the core (all assemblies)
+
+### Assembly Dendrogram
+
+Cluster assemblies by their shared protein content:
+
+```{r dendro}
+plot_dendro(pa, distance_method = "jaccard")
+```
+
+Try different distance metrics:
+
+```{r dendro-methods}
+# Jaccard: good for presence/absence
+plot_dendro(pa, distance_method = "jaccard") +
+  ggplot2::ggtitle("Jaccard Distance")
+```
+
+## Comparing Assemblies
+
+### Pairwise Similarity
+
+Calculate Jaccard similarity between all pairs:
+
+```{r pairwise}
+# Simple Jaccard calculation
+jaccard <- function(a, b) {
+  intersection <- sum(a == 1 & b == 1)
+  union <- sum(a == 1 | b == 1)
+  intersection / union
+}
+
+# Calculate for all pairs
+assemblies <- colnames(pa$matrix)
+n <- length(assemblies)
+sim_matrix <- matrix(0, n, n, dimnames = list(assemblies, assemblies))
+
+for (i in 1:n) {
+  for (j in 1:n) {
+    sim_matrix[i, j] <- jaccard(pa$matrix[, i], pa$matrix[, j])
+  }
+}
+
+round(sim_matrix, 2)
+```
+
+### Which Assemblies Share the Most?
+
+```{r most-similar}
+# Find most similar pair (excluding diagonal)
+sim_matrix_upper <- sim_matrix
+diag(sim_matrix_upper) <- 0
+max_idx <- which(sim_matrix_upper == max(sim_matrix_upper), arr.ind = TRUE)[1, ]
+
+cat("Most similar pair:",
+    assemblies[max_idx[1]], "and", assemblies[max_idx[2]],
+    "\nJaccard similarity:", round(max(sim_matrix_upper), 3), "\n")
+```
+
+## Assembly-Specific Analysis
+
+### Proteins Unique to One Assembly
+
+```{r assembly-specific}
+# Get singletons with assembly information
+singletons_df <- singletons_by_assembly(clusters)
+singletons_df
+
+# Which assembly has the most unique proteins?
+singletons_df %>%
+  arrange(desc(n_singletons))
+```
+
+### Orthogroups Missing from One Assembly
+
+```{r missing}
+# Which orthogroups are missing from asm_A?
+missing_from_asm_A <- pa$matrix[pa$matrix[, "asm_A"] == 0, , drop = FALSE]
+cat("Orthogroups missing from asm_A:", nrow(missing_from_asm_A), "\n")
+```
+
+## Exporting Results
+
+```{r export, eval=FALSE}
+# Export presence/absence matrix as CSV
+write.csv(
+  as.data.frame(pa),
+  "pan_genome_matrix.csv"
+)
+
+# Export orthogroup membership
+write.csv(
+  clusters$orthogroups,
+  "orthogroup_membership.csv",
+  row.names = FALSE
+)
+
+# Export pan-genome summary
+write.csv(
+  pan_summary,
+  "pan_genome_summary.csv",
+  row.names = FALSE
+)
+```
+
+## Summary
+
+Key steps for pan-genome analysis:
+
+1. Load FASTA files with `load_proteins(fasta_dir)`
+2. Cluster into orthogroups with `cluster_proteins()`
+3. Build binary matrix with `build_pa_matrix(type = "binary")`
+4. Analyze core/accessory/unique proportions
+5. Visualize with `plot_heatmap()`, `plot_upset()`, `plot_dendro()`
+
+## Next Steps
+
+- **[Getting Started](getting-started.html)** - Basic workflow overview
+- **[Effector Analysis](effector-analysis.html)** - Working with omnieff scores
+- **[Algorithm Deep Dive](algorithms.html)** - Technical details on clustering

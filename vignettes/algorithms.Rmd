@@ -1,0 +1,371 @@
+---
+title: "Algorithm Deep Dive"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Algorithm Deep Dive}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+## Introduction
+
+This vignette explains the algorithms used by paneffectR for clustering proteins and analyzing presence/absence data. It's intended for bioinformaticians who want to understand the technical details.
+
+```{r setup}
+library(paneffectR)
+```
+
+## Clustering: DIAMOND RBH + Expansion
+
+The default clustering method (`diamond_rbh`) uses a two-phase "seed and expand" algorithm that builds orthogroups spanning multiple assemblies.
+
+### The Problem with Pure RBH
+
+Reciprocal Best Hits (RBH) is a classic approach for finding orthologs between two genomes:
+
+1. For protein A in genome 1, find its best hit B in genome 2
+2. For protein B in genome 2, find its best hit in genome 1
+3. If B's best hit is A, they are reciprocal best hits
+
+**Limitation**: RBH only produces pairs. If you have 10 assemblies and a conserved protein family, pure RBH gives you 45 pairs (10 choose 2), not one orthogroup with 10 members.
+
+### The Solution: Seed and Expand
+
+paneffectR solves this with a two-phase approach:
+
+#### Phase 1: Seed (Strict)
+
+1. Run all-vs-all DIAMOND blastp
+2. Identify all RBH pairs across all assemblies
+3. Build initial orthogroups via connected components of the RBH graph
+
+If proteins A-B are RBH and B-C are RBH, then A, B, and C form one orthogroup.
+
+```
+Assembly 1: [A] ──RBH──┐
+                       │
+Assembly 2: [B] ──RBH──┼──RBH── [D] Assembly 4
+                       │
+Assembly 3: [C] ──RBH──┘
+
+Result: Orthogroup {A, B, C, D}
+```
+
+#### Phase 2: Expand (Relaxed)
+
+Some proteins may not have reciprocal best hits (due to gene loss, divergence, or assembly gaps) but still belong to an orthogroup. The expansion phase adds them:
+
+1. For each unclustered protein (singleton), find its best hit
+2. If that best hit is already in an orthogroup, add the singleton to that orthogroup
+3. Repeat until no more proteins can be added
+
+```
+Before expansion:
+  Orthogroup OG1: {A, B, C}
+  Singletons: {D, E, F}
+
+D's best hit = B (in OG1) → Add D to OG1
+E's best hit = D (now in OG1) → Add E to OG1
+F's best hit = X (not in any orthogroup) → F stays singleton
+
+After expansion:
+  Orthogroup OG1: {A, B, C, D, E}
+  Singletons: {F}
+```
+
+This approach balances precision (RBH seeds are high-confidence) with recall (expansion captures divergent members).
+
+### DIAMOND Parameters
+
+The clustering parameters affect sensitivity and specificity:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `min_identity` | 30 | Minimum % sequence identity |
+| `min_coverage` | 50 | Minimum % query coverage |
+| `evalue` | 1e-5 | Maximum E-value |
+| `mode` | "fast" | DIAMOND sensitivity mode |
+
+```{r params, eval=FALSE}
+# Fast mode (default)
+clusters <- cluster_proteins(proteins, mode = "fast")
+
+# More sensitive (slower, finds divergent homologs)
+clusters <- cluster_proteins(proteins, mode = "thorough")
+
+# Stricter thresholds (fewer, more confident orthogroups)
+clusters <- cluster_proteins(
+  proteins,
+  min_identity = 50,
+  min_coverage = 70
+)
+```
+
+### Mode Settings
+
+| Mode | DIAMOND Flag | Use Case |
+|------|--------------|----------|
+| `fast` | `--fast` | Quick analysis, closely related genomes |
+| `thorough` | `--sensitive` | Divergent sequences, comprehensive analysis |
+
+## Distance Metrics
+
+When clustering assemblies by their orthogroup content, the choice of distance metric matters.
+
+### Binary (Euclidean)
+
+Simple presence/absence treated as 0/1:
+
+$$d_{binary}(A, B) = \sqrt{\sum_i (x_{Ai} - x_{Bi})^2}$$
+
+Where $x_{Ai}$ is 1 if orthogroup $i$ is present in assembly $A$, else 0.
+
+**Characteristics:**
+- Sensitive to total number of differences
+- A single shared orthogroup and 100 shared orthogroups contribute differently
+
+### Jaccard Distance
+
+Based on set overlap:
+
+$$d_{Jaccard}(A, B) = 1 - \frac{|A \cap B|}{|A \cup B|}$$
+
+Where $|A \cap B|$ is orthogroups present in both, and $|A \cup B|$ is orthogroups present in either.
+
+**Characteristics:**
+- Normalized to [0, 1]
+- Ignores shared absences (double zeros)
+- Good for sparse presence/absence data
+- **Recommended for most pan-genome analyses**
+
+### Bray-Curtis Distance
+
+Originally for abundance data, but works with binary:
+
+$$d_{BC}(A, B) = \frac{\sum_i |x_{Ai} - x_{Bi}|}{\sum_i (x_{Ai} + x_{Bi})}$$
+
+**Characteristics:**
+- Normalized to [0, 1]
+- Ignores shared absences
+- Weighs by total presence (assemblies with more orthogroups contribute more)
+
+### Choosing a Distance Metric
+
+| Scenario | Recommended | Rationale |
+|----------|-------------|-----------|
+| General pan-genome | Jaccard | Standard for presence/absence |
+| Variable genome sizes | Jaccard | Normalizes for size differences |
+| With abundance/scores | Bray-Curtis | Handles quantitative data |
+| Simple comparison | Binary | Easy to interpret |
+
+```{r distance-example}
+# Load example data
+visual_dir <- system.file("testdata", "visual", package = "paneffectR")
+pa <- readRDS(file.path(visual_dir, "pa_binary.rds"))
+
+# Compare dendrograms with different metrics
+plot_dendro(pa, distance_method = "jaccard") +
+  ggplot2::ggtitle("Jaccard Distance")
+```
+
+## Hierarchical Clustering Methods
+
+After computing distances, assemblies are clustered hierarchically. The method determines how clusters are merged.
+
+### Complete Linkage
+
+Distance between clusters = maximum distance between any pair of members.
+
+**Characteristics:**
+- Produces compact, spherical clusters
+- Sensitive to outliers
+- Tends to find similar-sized clusters
+
+### Average Linkage (UPGMA)
+
+Distance between clusters = average distance between all pairs of members.
+
+**Characteristics:**
+- Balanced approach
+- Less sensitive to outliers than complete
+- Common in phylogenetics
+
+### Ward's Method
+
+Minimizes within-cluster variance at each merge.
+
+**Characteristics:**
+- Tends to produce equal-sized clusters
+- Good for finding natural groupings
+- Most aggressive at creating distinct clusters
+
+```{r cluster-methods, eval=FALSE}
+# Compare clustering methods
+plot_dendro(pa, cluster_method = "complete")
+plot_dendro(pa, cluster_method = "average")
+plot_dendro(pa, cluster_method = "ward.D2")
+```
+
+### Choosing a Clustering Method
+
+| Scenario | Recommended | Rationale |
+|----------|-------------|-----------|
+| Exploratory analysis | Ward's | Finds clear groupings |
+| Phylogenetic context | Average (UPGMA) | Standard in phylogenetics |
+| Outlier detection | Complete | Highlights distant assemblies |
+
+## Handling Singletons
+
+Singletons are proteins not assigned to any orthogroup - they have no significant matches to proteins in other assemblies.
+
+### Why Singletons Exist
+
+1. **True uniques**: Assembly-specific genes (e.g., horizontally transferred)
+2. **Divergent homologs**: Too divergent to pass similarity thresholds
+3. **Assembly artifacts**: Fragmented genes, contamination
+4. **Annotation artifacts**: Mis-predicted ORFs
+
+### Including vs Excluding Singletons
+
+```{r singletons}
+visual_dir <- system.file("testdata", "visual", package = "paneffectR")
+clusters <- readRDS(file.path(visual_dir, "clusters_visual.rds"))
+
+# With singletons (default)
+pa_with <- build_pa_matrix(clusters, exclude_singletons = FALSE)
+
+# Without singletons
+pa_without <- build_pa_matrix(clusters, exclude_singletons = TRUE)
+
+cat("With singletons:", nrow(pa_with$matrix), "orthogroups\n")
+cat("Without singletons:", nrow(pa_without$matrix), "orthogroups\n")
+```
+
+**When to include singletons:**
+- Analyzing unique gene content
+- Calculating pan-genome size
+- Studying accessory genome
+
+**When to exclude singletons:**
+- Focusing on shared variation
+- Phylogenetic analysis
+- Reducing noise from artifacts
+
+### Singleton Statistics
+
+```{r singleton-stats}
+# Total singletons
+n_singletons(clusters)
+
+# Per assembly
+singletons_by_assembly(clusters)
+
+# Access singleton data directly
+head(get_singletons(clusters))
+```
+
+## Alternative Clustering Backends
+
+paneffectR supports multiple clustering tools:
+
+### OrthoFinder
+
+Comprehensive ortholog inference using gene trees:
+
+```{r orthofinder, eval=FALSE}
+clusters <- cluster_proteins(proteins, method = "orthofinder")
+```
+
+**Advantages:**
+- Gold standard for orthology
+- Handles paralogs correctly
+- Builds species tree
+
+**Disadvantages:**
+- Slower than DIAMOND RBH
+- More complex output
+
+### MMseqs2
+
+Ultra-fast clustering for large datasets:
+
+```{r mmseqs, eval=FALSE}
+clusters <- cluster_proteins(proteins, method = "mmseqs2")
+```
+
+**Advantages:**
+- Extremely fast
+- Scales to millions of proteins
+- Low memory usage
+
+**Disadvantages:**
+- Less sensitive than DIAMOND
+- Greedy clustering (order-dependent)
+
+### Importing Precomputed Results
+
+Use existing ortholog definitions:
+
+```{r precomputed, eval=FALSE}
+# Import OrthoFinder results
+clusters <- cluster_proteins(
+  proteins,
+  method = "precomputed",
+  precomputed_path = "path/to/Orthogroups.tsv"
+)
+
+# Import custom CSV (must have: orthogroup_id, assembly, protein_id)
+clusters <- cluster_proteins(
+  proteins,
+  method = "precomputed",
+  precomputed_path = "my_orthogroups.csv"
+)
+```
+
+## Performance Considerations
+
+### Memory
+
+- Presence/absence matrices are sparse; consider for very large datasets
+- DIAMOND all-vs-all output can be large; temporary files are cleaned up
+
+### Speed
+
+| Dataset Size | Recommended Method |
+|--------------|-------------------|
+| < 10 assemblies | `diamond_rbh` |
+| 10-100 assemblies | `diamond_rbh` with `mode = "fast"` |
+| > 100 assemblies | `mmseqs2` |
+| Very divergent | `orthofinder` or `diamond_rbh` with `mode = "thorough"` |
+
+### Parallelization
+
+Clustering tools use multiple threads automatically:
+
+```{r threads, eval=FALSE}
+# Control thread count
+clusters <- cluster_proteins(proteins, threads = 8)
+
+# Auto-detect (default)
+clusters <- cluster_proteins(proteins)  # Uses available cores
+```
+
+## Summary
+
+| Component | Default | Alternatives |
+|-----------|---------|--------------|
+| Clustering | DIAMOND RBH + expansion | OrthoFinder, MMseqs2 |
+| Distance | Jaccard | Binary, Bray-Curtis |
+| Hierarchical clustering | Complete | Average, Ward's |
+| Singletons | Included | Can exclude |
+
+The defaults are chosen for a good balance of speed and accuracy for typical pan-genome analyses of related organisms.
