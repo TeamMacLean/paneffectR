@@ -1,0 +1,12 @@
+pandoc: 3.1.11
+pkgdown: 2.2.0
+pkgdown_sha: ~
+articles:
+  algorithms: algorithms.html
+  effector-analysis: effector-analysis.html
+  getting-started: getting-started.html
+  pan-genome: pan-genome.html
+last_built: 2026-02-16T10:52Z
+urls:
+  reference: https://TeamMacLean.github.io/paneffectR/reference
+  article: https://TeamMacLean.github.io/paneffectR/articles
