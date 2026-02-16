@@ -18,5 +18,5 @@ Step-by-step guides for common analysis scenarios
 
 In-depth explanations of algorithms and methods
 
-- [Algorithm Deep
-  Dive](https://TeamMacLean.github.io/paneffectR/articles/algorithms.md):
+- [Algorithms in
+  paneffectR](https://TeamMacLean.github.io/paneffectR/articles/algorithms.md):

@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Algorithm Deep Dive • paneffectR</title>
+<title>Algorithms in paneffectR • paneffectR</title>
 <!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
 <link rel="icon" type="”image/svg+xml”" href="../favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
@@ -15,7 +15,7 @@
 <link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Algorithm Deep Dive">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Algorithms in paneffectR">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -66,7 +66,7 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-      <img src="../logo.svg" class="logo" alt=""><h1>Algorithm Deep Dive</h1>
+      <img src="../logo.svg" class="logo" alt=""><h1>Algorithms in paneffectR</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/TeamMacLean/paneffectR/blob/main/vignettes/algorithms.Rmd" class="external-link"><code>vignettes/algorithms.Rmd</code></a></small>
@@ -78,342 +78,1531 @@
 <div class="section level2">
 <h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
 </h2>
-<p>This vignette explains the algorithms used by paneffectR for
-clustering proteins and analyzing presence/absence data. It’s intended
-for bioinformaticians who want to understand the technical details.</p>
+<p>This vignette walks through the DIAMOND RBH + Expansion clustering
+algorithm step by step, using real data from known fungal orthologs.
+Instead of describing algorithms conceptually, we show exactly what
+happens at each stage with actual sequence data.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/TeamMacLean/paneffectR" class="external-link">paneffectR</a></span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/TeamMacLean/paneffectR" class="external-link">paneffectR</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://dplyr.tidyverse.org" class="external-link">dplyr</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyr.tidyverse.org" class="external-link">tidyr</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="clustering-diamond-rbh-expansion">Clustering: DIAMOND RBH + Expansion<a class="anchor" aria-label="anchor" href="#clustering-diamond-rbh-expansion"></a>
+<h2 id="the-dataset">The Dataset<a class="anchor" aria-label="anchor" href="#the-dataset"></a>
 </h2>
-<p>The default clustering method (<code>diamond_rbh</code>) uses a
-two-phase “seed and expand” algorithm that builds orthogroups spanning
-multiple assemblies.</p>
+<p>We use 16 well-characterized proteins from three fungal species with
+known orthology relationships:</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Load the protein collection</span></span>
+<span><span class="va">clustering_dir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"testdata"</span>, <span class="st">"clustering"</span>, package <span class="op">=</span> <span class="st">"paneffectR"</span><span class="op">)</span></span>
+<span><span class="va">proteins</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">clustering_dir</span>, <span class="st">"known_orthologs.rds"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Load expected relationships (ground truth)</span></span>
+<span><span class="va">expected</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">clustering_dir</span>, <span class="st">"expected_orthogroups.csv"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Summary</span></span>
+<span><span class="va">proteins</span></span>
+<span><span class="co">#&gt; -- protein_collection --</span></span>
+<span><span class="co">#&gt; 3 assemblies, 16 total proteins</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 3</span></span></span>
+<span><span class="co">#&gt;   assembly_name n_proteins has_scores</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>              <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;lgl&gt;</span>     </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> ncra                   5 FALSE     </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> scer                   6 FALSE     </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> spom                   5 FALSE</span></span></code></pre></div>
+<p>The dataset includes:</p>
+<ul>
+<li>
+<strong>3 species</strong>: <em>S. cerevisiae</em> (budding yeast),
+<em>S. pombe</em> (fission yeast), <em>N. crassa</em> (bread mold)</li>
+<li>
+<strong>5 conserved protein families</strong>: actin, GAPDH, histone
+H3, EF-1α, cytochrome c</li>
+<li>
+<strong>1 species-specific singleton</strong>: mating pheromone MFA1
+(only in S. cerevisiae)</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">expected</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">protein_id</span>, <span class="va">assembly</span>, <span class="va">expected_og</span>, <span class="va">protein_name</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Ground truth: expected orthogroup assignments"</span><span class="op">)</span></span></code></pre></div>
+<table class="table">
+<caption>Ground truth: expected orthogroup assignments</caption>
+<colgroup>
+<col width="15%">
+<col width="11%">
+<col width="17%">
+<col width="55%">
+</colgroup>
+<thead><tr class="header">
+<th align="left">protein_id</th>
+<th align="left">assembly</th>
+<th align="left">expected_og</th>
+<th align="left">protein_name</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">scer_ACT1</td>
+<td align="left">scer</td>
+<td align="left">OG_actin</td>
+<td align="left">Actin</td>
+</tr>
+<tr class="even">
+<td align="left">spom_act1</td>
+<td align="left">spom</td>
+<td align="left">OG_actin</td>
+<td align="left">Actin</td>
+</tr>
+<tr class="odd">
+<td align="left">ncra_act</td>
+<td align="left">ncra</td>
+<td align="left">OG_actin</td>
+<td align="left">Actin</td>
+</tr>
+<tr class="even">
+<td align="left">scer_TDH1</td>
+<td align="left">scer</td>
+<td align="left">OG_gapdh</td>
+<td align="left">Glyceraldehyde-3-phosphate dehydrogenase 1</td>
+</tr>
+<tr class="odd">
+<td align="left">spom_tdh1</td>
+<td align="left">spom</td>
+<td align="left">OG_gapdh</td>
+<td align="left">Glyceraldehyde-3-phosphate dehydrogenase 1</td>
+</tr>
+<tr class="even">
+<td align="left">ncra_gpd1</td>
+<td align="left">ncra</td>
+<td align="left">OG_gapdh</td>
+<td align="left">Glyceraldehyde-3-phosphate dehydrogenase</td>
+</tr>
+<tr class="odd">
+<td align="left">scer_HHT1</td>
+<td align="left">scer</td>
+<td align="left">OG_histone_h3</td>
+<td align="left">Histone H3</td>
+</tr>
+<tr class="even">
+<td align="left">spom_hht1</td>
+<td align="left">spom</td>
+<td align="left">OG_histone_h3</td>
+<td align="left">Histone H3.1/H3.2</td>
+</tr>
+<tr class="odd">
+<td align="left">ncra_hh3</td>
+<td align="left">ncra</td>
+<td align="left">OG_histone_h3</td>
+<td align="left">Histone H3</td>
+</tr>
+<tr class="even">
+<td align="left">scer_TEF1</td>
+<td align="left">scer</td>
+<td align="left">OG_ef1a</td>
+<td align="left">Elongation factor 1-alpha</td>
+</tr>
+<tr class="odd">
+<td align="left">spom_tef101</td>
+<td align="left">spom</td>
+<td align="left">OG_ef1a</td>
+<td align="left">Elongation factor 1-alpha-A</td>
+</tr>
+<tr class="even">
+<td align="left">ncra_tef1</td>
+<td align="left">ncra</td>
+<td align="left">OG_ef1a</td>
+<td align="left">Elongation factor 1-alpha</td>
+</tr>
+<tr class="odd">
+<td align="left">scer_CYC1</td>
+<td align="left">scer</td>
+<td align="left">OG_cyc</td>
+<td align="left">Cytochrome c isoform 1</td>
+</tr>
+<tr class="even">
+<td align="left">spom_cyc1</td>
+<td align="left">spom</td>
+<td align="left">OG_cyc</td>
+<td align="left">Cytochrome c</td>
+</tr>
+<tr class="odd">
+<td align="left">ncra_cyc1</td>
+<td align="left">ncra</td>
+<td align="left">OG_cyc</td>
+<td align="left">Cytochrome c</td>
+</tr>
+<tr class="even">
+<td align="left">scer_MFA1</td>
+<td align="left">scer</td>
+<td align="left">singleton</td>
+<td align="left">Mating factor alpha-1</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level2">
+<h2 id="step-1-all-vs-all-alignment">Step 1: All-vs-All Alignment<a class="anchor" aria-label="anchor" href="#step-1-all-vs-all-alignment"></a>
+</h2>
+<p>The first step runs DIAMOND blastp to compare every protein against
+every other protein. This produces a table of sequence similarity
+hits.</p>
+<p>paneffectR runs DIAMOND with a custom output format to get the
+columns needed for filtering and RBH detection:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="ex">diamond</span> blastp <span class="at">-d</span> db <span class="at">-q</span> proteins.faa <span class="at">-o</span> hits.tsv <span class="dt">\</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  <span class="at">--outfmt</span> 6 qseqid sseqid pident length qlen evalue bitscore</span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Load pre-computed DIAMOND results</span></span>
+<span><span class="va">diamond_hits</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">clustering_dir</span>, <span class="st">"diamond_hits.rds"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Show structure</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Total hits (excluding self-hits):"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">diamond_hits</span><span class="op">)</span>, <span class="st">"\n\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Total hits (excluding self-hits): 30</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">diamond_hits</span>, <span class="fl">10</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span>digits <span class="op">=</span> <span class="fl">2</span>, caption <span class="op">=</span> <span class="st">"DIAMOND output with computed coverage"</span><span class="op">)</span></span></code></pre></div>
+<table class="table">
+<caption>DIAMOND output with computed coverage</caption>
+<colgroup>
+<col width="15%">
+<col width="18%">
+<col width="10%">
+<col width="10%">
+<col width="7%">
+<col width="10%">
+<col width="14%">
+<col width="10%">
+</colgroup>
+<thead><tr class="header">
+<th align="left">qseqid</th>
+<th align="left">sseqid</th>
+<th align="right">pident</th>
+<th align="right">length</th>
+<th align="right">qlen</th>
+<th align="right">evalue</th>
+<th align="right">bitscore</th>
+<th align="right">qcov</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">ncra_act</td>
+<td align="left">spom_act1</td>
+<td align="right">92.0</td>
+<td align="right">375</td>
+<td align="right">375</td>
+<td align="right">0</td>
+<td align="right">716</td>
+<td align="right">100.00</td>
+</tr>
+<tr class="even">
+<td align="left">ncra_act</td>
+<td align="left">scer_ACT1</td>
+<td align="right">92.0</td>
+<td align="right">375</td>
+<td align="right">375</td>
+<td align="right">0</td>
+<td align="right">709</td>
+<td align="right">100.00</td>
+</tr>
+<tr class="odd">
+<td align="left">ncra_gpd1</td>
+<td align="left">spom_tdh1</td>
+<td align="right">69.1</td>
+<td align="right">333</td>
+<td align="right">338</td>
+<td align="right">0</td>
+<td align="right">463</td>
+<td align="right">98.52</td>
+</tr>
+<tr class="even">
+<td align="left">ncra_gpd1</td>
+<td align="left">scer_TDH1</td>
+<td align="right">63.7</td>
+<td align="right">331</td>
+<td align="right">338</td>
+<td align="right">0</td>
+<td align="right">438</td>
+<td align="right">97.93</td>
+</tr>
+<tr class="odd">
+<td align="left">ncra_hh3</td>
+<td align="left">scer_HHT1</td>
+<td align="right">94.9</td>
+<td align="right">136</td>
+<td align="right">136</td>
+<td align="right">0</td>
+<td align="right">236</td>
+<td align="right">100.00</td>
+</tr>
+<tr class="even">
+<td align="left">ncra_hh3</td>
+<td align="left">spom_hht1</td>
+<td align="right">92.6</td>
+<td align="right">136</td>
+<td align="right">136</td>
+<td align="right">0</td>
+<td align="right">235</td>
+<td align="right">100.00</td>
+</tr>
+<tr class="odd">
+<td align="left">ncra_tef1</td>
+<td align="left">spom_tef101</td>
+<td align="right">86.1</td>
+<td align="right">460</td>
+<td align="right">460</td>
+<td align="right">0</td>
+<td align="right">807</td>
+<td align="right">100.00</td>
+</tr>
+<tr class="even">
+<td align="left">ncra_tef1</td>
+<td align="left">scer_TEF1</td>
+<td align="right">85.7</td>
+<td align="right">460</td>
+<td align="right">460</td>
+<td align="right">0</td>
+<td align="right">795</td>
+<td align="right">100.00</td>
+</tr>
+<tr class="odd">
+<td align="left">ncra_cyc1</td>
+<td align="left">spom_cyc1</td>
+<td align="right">70.4</td>
+<td align="right">108</td>
+<td align="right">108</td>
+<td align="right">0</td>
+<td align="right">175</td>
+<td align="right">100.00</td>
+</tr>
+<tr class="even">
+<td align="left">ncra_cyc1</td>
+<td align="left">scer_CYC1</td>
+<td align="right">69.2</td>
+<td align="right">104</td>
+<td align="right">108</td>
+<td align="right">0</td>
+<td align="right">166</td>
+<td align="right">96.30</td>
+</tr>
+</tbody>
+</table>
 <div class="section level3">
-<h3 id="the-problem-with-pure-rbh">The Problem with Pure RBH<a class="anchor" aria-label="anchor" href="#the-problem-with-pure-rbh"></a>
+<h3 id="understanding-the-columns">Understanding the columns<a class="anchor" aria-label="anchor" href="#understanding-the-columns"></a>
 </h3>
-<p>Reciprocal Best Hits (RBH) is a classic approach for finding
-orthologs between two genomes:</p>
-<ol style="list-style-type: decimal">
-<li>For protein A in genome 1, find its best hit B in genome 2</li>
-<li>For protein B in genome 2, find its best hit in genome 1</li>
-<li>If B’s best hit is A, they are reciprocal best hits</li>
-</ol>
-<p><strong>Limitation</strong>: RBH only produces pairs. If you have 10
-assemblies and a conserved protein family, pure RBH gives you 45 pairs
-(10 choose 2), not one orthogroup with 10 members.</p>
-</div>
-<div class="section level3">
-<h3 id="the-solution-seed-and-expand">The Solution: Seed and Expand<a class="anchor" aria-label="anchor" href="#the-solution-seed-and-expand"></a>
-</h3>
-<p>paneffectR solves this with a two-phase approach:</p>
-<div class="section level4">
-<h4 id="phase-1-seed-strict">Phase 1: Seed (Strict)<a class="anchor" aria-label="anchor" href="#phase-1-seed-strict"></a>
-</h4>
-<ol style="list-style-type: decimal">
-<li>Run all-vs-all DIAMOND blastp</li>
-<li>Identify all RBH pairs across all assemblies</li>
-<li>Build initial orthogroups via connected components of the RBH
-graph</li>
-</ol>
-<p>If proteins A-B are RBH and B-C are RBH, then A, B, and C form one
-orthogroup.</p>
-<pre><code>Assembly 1: [A] ──RBH──┐
-                       │
-Assembly 2: [B] ──RBH──┼──RBH── [D] Assembly 4
-                       │
-Assembly 3: [C] ──RBH──┘
-
-Result: Orthogroup {A, B, C, D}</code></pre>
-</div>
-<div class="section level4">
-<h4 id="phase-2-expand-relaxed">Phase 2: Expand (Relaxed)<a class="anchor" aria-label="anchor" href="#phase-2-expand-relaxed"></a>
-</h4>
-<p>Some proteins may not have reciprocal best hits (due to gene loss,
-divergence, or assembly gaps) but still belong to an orthogroup. The
-expansion phase adds them:</p>
-<ol style="list-style-type: decimal">
-<li>For each unclustered protein (singleton), find its best hit</li>
-<li>If that best hit is already in an orthogroup, add the singleton to
-that orthogroup</li>
-<li>Repeat until no more proteins can be added</li>
-</ol>
-<pre><code>Before expansion:
-  Orthogroup OG1: {A, B, C}
-  Singletons: {D, E, F}
-
-D's best hit = B (in OG1) → Add D to OG1
-E's best hit = D (now in OG1) → Add E to OG1
-F's best hit = X (not in any orthogroup) → F stays singleton
-
-After expansion:
-  Orthogroup OG1: {A, B, C, D, E}
-  Singletons: {F}</code></pre>
-<p>This approach balances precision (RBH seeds are high-confidence) with
-recall (expansion captures divergent members).</p>
-</div>
-</div>
-<div class="section level3">
-<h3 id="diamond-parameters">DIAMOND Parameters<a class="anchor" aria-label="anchor" href="#diamond-parameters"></a>
-</h3>
-<p>The clustering parameters affect sensitivity and specificity:</p>
+<p><strong>From DIAMOND directly</strong> (7 columns):</p>
 <table class="table">
 <thead><tr class="header">
-<th>Parameter</th>
-<th>Default</th>
+<th>Column</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
+<td><code>qseqid</code></td>
+<td>Query protein ID</td>
+</tr>
+<tr class="even">
+<td><code>sseqid</code></td>
+<td>Subject (hit) protein ID</td>
+</tr>
+<tr class="odd">
+<td><code>pident</code></td>
+<td>Percent sequence identity</td>
+</tr>
+<tr class="even">
+<td><code>length</code></td>
+<td>Alignment length (amino acids)</td>
+</tr>
+<tr class="odd">
+<td><code>qlen</code></td>
+<td>Query sequence length</td>
+</tr>
+<tr class="even">
+<td><code>evalue</code></td>
+<td>E-value (statistical significance; lower = better)</td>
+</tr>
+<tr class="odd">
+<td><code>bitscore</code></td>
+<td>Bit score (higher = better match)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Computed by paneffectR</strong> (1 column):</p>
+<table class="table">
+<colgroup>
+<col width="30%">
+<col width="34%">
+<col width="34%">
+</colgroup>
+<thead><tr class="header">
+<th>Column</th>
+<th>Formula</th>
+<th>Purpose</th>
+</tr></thead>
+<tbody><tr class="odd">
+<td><code>qcov</code></td>
+<td><code>(length / qlen) * 100</code></td>
+<td>Query coverage percentage, used for filtering</td>
+</tr></tbody>
+</table>
+<p>Note: This differs from the default BLAST tabular format, which
+includes alignment coordinates (<code>qstart</code>, <code>qend</code>,
+<code>sstart</code>, <code>send</code>) and gap information
+(<code>mismatch</code>, <code>gapopen</code>). We request only the
+columns needed for clustering.</p>
+</div>
+<div class="section level3">
+<h3 id="visualizing-hit-scores">Visualizing hit scores<a class="anchor" aria-label="anchor" href="#visualizing-hit-scores"></a>
+</h3>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Get best hit between each pair</span></span>
+<span><span class="va">best_hits</span> <span class="op">&lt;-</span> <span class="va">diamond_hits</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">qseqid</span>, <span class="va">sseqid</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/slice.html" class="external-link">slice_max</a></span><span class="op">(</span><span class="va">bitscore</span>, n <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">ungroup</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Order proteins by protein family (expected_og) to reveal ortholog blocks</span></span>
+<span><span class="va">protein_order</span> <span class="op">&lt;-</span> <span class="va">expected</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange</a></span><span class="op">(</span><span class="va">expected_og</span>, <span class="va">assembly</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">protein_id</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Convert to long format for ggplot with family-based ordering</span></span>
+<span><span class="va">plot_data</span> <span class="op">&lt;-</span> <span class="va">best_hits</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
+<span>    qseqid <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">qseqid</span>, levels <span class="op">=</span> <span class="va">protein_order</span><span class="op">)</span>,</span>
+<span>    sseqid <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">sseqid</span>, levels <span class="op">=</span> <span class="va">protein_order</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">plot_data</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">sseqid</span>, y <span class="op">=</span> <span class="va">qseqid</span>, fill <span class="op">=</span> <span class="va">bitscore</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_tile.html" class="external-link">geom_tile</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_viridis.html" class="external-link">scale_fill_viridis_c</a></span><span class="op">(</span>name <span class="op">=</span> <span class="st">"Bitscore"</span><span class="op">)</span> <span class="op">+</span></span>
+<span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span>axis.text.x <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>angle <span class="op">=</span> <span class="fl">45</span>, hjust <span class="op">=</span> <span class="fl">1</span>, size <span class="op">=</span> <span class="fl">8</span><span class="op">)</span>,</span>
+<span>        axis.text.y <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>size <span class="op">=</span> <span class="fl">8</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Subject"</span>, y <span class="op">=</span> <span class="st">"Query"</span>,</span>
+<span>       title <span class="op">=</span> <span class="st">"DIAMOND blastp hit scores (ordered by protein family)"</span>,</span>
+<span>       subtitle <span class="op">=</span> <span class="st">"Diagonal blocks show orthologs with high similarity"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="algorithms_files/figure-html/hit-heatmap-1.png" class="r-plt" alt="" width="1050"></p>
+<p>The heatmap reveals clear ortholog groups: proteins from the same
+family (e.g., all three actins) cluster together with high scores, while
+unrelated proteins show no hits.</p>
+<p><strong>Note:</strong> The singleton <code>scer_MFA1</code> (mating
+pheromone) is absent from this plot because it has no significant hits
+to any other protein - exactly why it will end up as a singleton in the
+final clustering.</p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="step-2-filtering-by-thresholds">Step 2: Filtering by Thresholds<a class="anchor" aria-label="anchor" href="#step-2-filtering-by-thresholds"></a>
+</h2>
+<p>Not all hits are meaningful. We apply thresholds to keep only
+significant matches:</p>
+<table class="table">
+<thead><tr class="header">
+<th>Parameter</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
 <td><code>min_identity</code></td>
-<td>30</td>
-<td>Minimum % sequence identity</td>
+<td>30%</td>
+<td>Exclude very divergent matches</td>
 </tr>
 <tr class="even">
 <td><code>min_coverage</code></td>
-<td>50</td>
-<td>Minimum % query coverage</td>
+<td>50%</td>
+<td>Exclude partial matches</td>
 </tr>
 <tr class="odd">
 <td><code>evalue</code></td>
 <td>1e-5</td>
-<td>Maximum E-value</td>
-</tr>
-<tr class="even">
-<td><code>mode</code></td>
-<td>“fast”</td>
-<td>DIAMOND sensitivity mode</td>
+<td>Exclude statistically insignificant matches</td>
 </tr>
 </tbody>
 </table>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Fast mode (default)</span></span>
-<span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span>, mode <span class="op">=</span> <span class="st">"fast"</span><span class="op">)</span></span>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Load filtered hits</span></span>
+<span><span class="va">hits_filtered</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">clustering_dir</span>, <span class="st">"diamond_hits_filtered.rds"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># More sensitive (slower, finds divergent homologs)</span></span>
-<span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span>, mode <span class="op">=</span> <span class="st">"thorough"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Stricter thresholds (fewer, more confident orthogroups)</span></span>
-<span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span></span>
-<span>  <span class="va">proteins</span>,</span>
-<span>  min_identity <span class="op">=</span> <span class="fl">50</span>,</span>
-<span>  min_coverage <span class="op">=</span> <span class="fl">70</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Before filtering:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">diamond_hits</span><span class="op">)</span>, <span class="st">"hits\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Before filtering: 30 hits</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"After filtering: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">hits_filtered</span><span class="op">)</span>, <span class="st">"hits\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; After filtering:  30 hits</span></span></code></pre></div>
+<p>In this case, all hits pass the filters because these are
+well-conserved proteins with high sequence similarity.</p>
 </div>
-<div class="section level3">
-<h3 id="mode-settings">Mode Settings<a class="anchor" aria-label="anchor" href="#mode-settings"></a>
-</h3>
+<div class="section level2">
+<h2 id="step-3-finding-reciprocal-best-hits">Step 3: Finding Reciprocal Best Hits<a class="anchor" aria-label="anchor" href="#step-3-finding-reciprocal-best-hits"></a>
+</h2>
+<p>A <strong>reciprocal best hit (RBH)</strong> is when two proteins are
+each other’s best match. This is a stringent criterion for
+orthology:</p>
+<ol style="list-style-type: decimal">
+<li>Find protein A’s best hit → B</li>
+<li>Find protein B’s best hit → back to A?</li>
+<li>If yes, A and B are reciprocal best hits</li>
+</ol>
+<p>From our 30 filtered hits, paneffectR identified 5 RBH pairs:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">rbh_pairs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">clustering_dir</span>, <span class="st">"rbh_pairs.rds"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">rbh_pairs</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Reciprocal best hit pairs identified"</span><span class="op">)</span></span></code></pre></div>
 <table class="table">
-<colgroup>
-<col width="20%">
-<col width="46%">
-<col width="33%">
-</colgroup>
+<caption>Reciprocal best hit pairs identified</caption>
 <thead><tr class="header">
-<th>Mode</th>
-<th>DIAMOND Flag</th>
-<th>Use Case</th>
+<th align="left">protein_a</th>
+<th align="left">protein_b</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td><code>fast</code></td>
-<td><code>--fast</code></td>
-<td>Quick analysis, closely related genomes</td>
+<td align="left">ncra_act</td>
+<td align="left">spom_act1</td>
 </tr>
 <tr class="even">
-<td><code>thorough</code></td>
-<td><code>--sensitive</code></td>
-<td>Divergent sequences, comprehensive analysis</td>
+<td align="left">ncra_cyc1</td>
+<td align="left">spom_cyc1</td>
+</tr>
+<tr class="odd">
+<td align="left">ncra_hh3</td>
+<td align="left">scer_HHT1</td>
+</tr>
+<tr class="even">
+<td align="left">scer_TDH1</td>
+<td align="left">spom_tdh1</td>
+</tr>
+<tr class="odd">
+<td align="left">scer_TEF1</td>
+<td align="left">spom_tef101</td>
 </tr>
 </tbody>
 </table>
+<div class="section level3">
+<h3 id="why-not-all-orthologs-form-rbh-pairs">Why not all orthologs form RBH pairs<a class="anchor" aria-label="anchor" href="#why-not-all-orthologs-form-rbh-pairs"></a>
+</h3>
+<p>Let’s trace through an example where RBH <strong>fails</strong> to
+connect obvious orthologs.</p>
+<p><strong>Question:</strong> Is <code>scer_ACT1</code> (yeast actin) in
+an RBH pair with <code>ncra_act</code> (N. crassa actin)?</p>
+<p><strong>Step 1:</strong> Find <code>scer_ACT1</code>’s best hit.</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">scer_act1_hits</span> <span class="op">&lt;-</span> <span class="va">hits_filtered</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">qseqid</span> <span class="op">==</span> <span class="st">"scer_ACT1"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/desc.html" class="external-link">desc</a></span><span class="op">(</span><span class="va">bitscore</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">scer_act1_hits</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">qseqid</span>, <span class="va">sseqid</span>, <span class="va">pident</span>, <span class="va">bitscore</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<table class="table">
+<thead><tr class="header">
+<th align="left">qseqid</th>
+<th align="left">sseqid</th>
+<th align="right">pident</th>
+<th align="right">bitscore</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">scer_ACT1</td>
+<td align="left">ncra_act</td>
+<td align="right">92.0</td>
+<td align="right">708</td>
+</tr>
+<tr class="even">
+<td align="left">scer_ACT1</td>
+<td align="left">spom_act1</td>
+<td align="right">89.6</td>
+<td align="right">696</td>
+</tr>
+</tbody>
+</table>
+<p>The best hit (highest bitscore) is <code>ncra_act</code> with score
+708.</p>
+<p><strong>Step 2:</strong> Check the reverse - what is
+<code>ncra_act</code>’s best hit?</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">ncra_act_hits</span> <span class="op">&lt;-</span> <span class="va">hits_filtered</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">qseqid</span> <span class="op">==</span> <span class="st">"ncra_act"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/desc.html" class="external-link">desc</a></span><span class="op">(</span><span class="va">bitscore</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">ncra_act_hits</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">qseqid</span>, <span class="va">sseqid</span>, <span class="va">pident</span>, <span class="va">bitscore</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<table class="table">
+<thead><tr class="header">
+<th align="left">qseqid</th>
+<th align="left">sseqid</th>
+<th align="right">pident</th>
+<th align="right">bitscore</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">ncra_act</td>
+<td align="left">spom_act1</td>
+<td align="right">92</td>
+<td align="right">716</td>
+</tr>
+<tr class="even">
+<td align="left">ncra_act</td>
+<td align="left">scer_ACT1</td>
+<td align="right">92</td>
+<td align="right">709</td>
+</tr>
+</tbody>
+</table>
+<p>The best hit for <code>ncra_act</code> is <code>spom_act1</code>
+(score 716), <strong>not</strong> <code>scer_ACT1</code> (score
+709).</p>
+<p><strong>Result:</strong> <code>scer_ACT1</code> →
+<code>ncra_act</code>, but <code>ncra_act</code> →
+<code>spom_act1</code>. The relationship is not reciprocal, so they are
+<strong>not</strong> an RBH pair.</p>
+<p>This illustrates the limitation of pure RBH: <code>scer_ACT1</code>
+is a clear actin ortholog, but because <code>ncra_act</code> is slightly
+more similar to <code>spom_act1</code>, the yeast actin gets left out of
+the RBH network. The expansion phase (Step 5) will rescue it.</p>
+</div>
+<div class="section level3">
+<h3 id="visualizing-rbh-pairs">Visualizing RBH pairs<a class="anchor" aria-label="anchor" href="#visualizing-rbh-pairs"></a>
+</h3>
+<p>With only 5 RBH pairs from 15 orthologous proteins, we’re clearly
+missing connections. To see the pattern, let’s visualize which species
+are linked by RBH for each protein family.</p>
+<p>The figure below shows all 5 RBH pairs as lines connecting proteins
+across species. Each column is a protein family, each row is a species.
+Notice that RBH pairs only connect <strong>two species at a
+time</strong> - this is the fundamental limitation that the expansion
+phase addresses.</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Get protein positions for network layout</span></span>
+<span><span class="va">protein_positions</span> <span class="op">&lt;-</span> <span class="va">expected</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">expected_og</span> <span class="op">!=</span> <span class="st">"singleton"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
+<span>    x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">expected_og</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">assembly</span>, levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ncra"</span>, <span class="st">"spom"</span>, <span class="st">"scer"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Plot</span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="co"># Add edges for RBH pairs</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_segment.html" class="external-link">geom_segment</a></span><span class="op">(</span></span>
+<span>    data <span class="op">=</span> <span class="va">rbh_pairs</span> <span class="op">|&gt;</span></span>
+<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="va">protein_positions</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">protein_id</span>, <span class="va">x</span>, <span class="va">y</span><span class="op">)</span>,</span>
+<span>                by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"protein_a"</span> <span class="op">=</span> <span class="st">"protein_id"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/rename.html" class="external-link">rename</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="va">x</span>, y1 <span class="op">=</span> <span class="va">y</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="va">protein_positions</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">protein_id</span>, <span class="va">x</span>, <span class="va">y</span><span class="op">)</span>,</span>
+<span>                by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"protein_b"</span> <span class="op">=</span> <span class="st">"protein_id"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/rename.html" class="external-link">rename</a></span><span class="op">(</span>x2 <span class="op">=</span> <span class="va">x</span>, y2 <span class="op">=</span> <span class="va">y</span><span class="op">)</span>,</span>
+<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">x1</span>, y <span class="op">=</span> <span class="va">y1</span>, xend <span class="op">=</span> <span class="va">x2</span>, yend <span class="op">=</span> <span class="va">y2</span><span class="op">)</span>,</span>
+<span>    color <span class="op">=</span> <span class="st">"steelblue"</span>, linewidth <span class="op">=</span> <span class="fl">1.5</span>, alpha <span class="op">=</span> <span class="fl">0.6</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="co"># Add protein points</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html" class="external-link">geom_point</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">protein_positions</span>,</span>
+<span>             <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">x</span>, y <span class="op">=</span> <span class="va">y</span>, color <span class="op">=</span> <span class="va">assembly</span><span class="op">)</span>,</span>
+<span>             size <span class="op">=</span> <span class="fl">4</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_text.html" class="external-link">geom_text</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">protein_positions</span>,</span>
+<span>            <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">x</span>, y <span class="op">=</span> <span class="va">y</span>, label <span class="op">=</span> <span class="va">protein_id</span><span class="op">)</span>,</span>
+<span>            size <span class="op">=</span> <span class="fl">2.5</span>, vjust <span class="op">=</span> <span class="op">-</span><span class="fl">1</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_continuous.html" class="external-link">scale_y_continuous</a></span><span class="op">(</span></span>
+<span>    breaks <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>,</span>
+<span>    labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"N. crassa"</span>, <span class="st">"S. pombe"</span>, <span class="st">"S. cerevisiae"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_continuous.html" class="external-link">scale_x_continuous</a></span><span class="op">(</span></span>
+<span>    breaks <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">5</span>,</span>
+<span>    labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"actin"</span>, <span class="st">"cyc"</span>, <span class="st">"ef1a"</span>, <span class="st">"gapdh"</span>, <span class="st">"h3"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_manual.html" class="external-link">scale_color_manual</a></span><span class="op">(</span>values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>ncra <span class="op">=</span> <span class="st">"#E69F00"</span>, spom <span class="op">=</span> <span class="st">"#56B4E9"</span>, scer <span class="op">=</span> <span class="st">"#009E73"</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>title <span class="op">=</span> <span class="st">"RBH pairs connect proteins across species"</span>,</span>
+<span>       subtitle <span class="op">=</span> <span class="st">"Lines show reciprocal best hit relationships"</span>,</span>
+<span>       x <span class="op">=</span> <span class="st">"Protein family"</span>, y <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span>legend.position <span class="op">=</span> <span class="st">"none"</span>,</span>
+<span>        panel.grid.minor <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_blank</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><img src="algorithms_files/figure-html/rbh-network-1.png" class="r-plt" alt="" width="1050"></p>
+<p>Notice that RBH pairs only connect <strong>two species at a
+time</strong>. This is the fundamental limitation of pure RBH: it can’t
+directly identify orthogroups spanning three or more species.</p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="step-4-building-seed-clusters">Step 4: Building Seed Clusters<a class="anchor" aria-label="anchor" href="#step-4-building-seed-clusters"></a>
+</h2>
+<p>The RBH pairs form the “seeds” for orthogroups. We find
+<strong>connected components</strong> in the RBH graph: proteins linked
+through any chain of RBH pairs form one group.</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">orthogroups_seed</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">clustering_dir</span>, <span class="st">"orthogroups_seed.rds"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">orthogroups_seed</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange</a></span><span class="op">(</span><span class="va">orthogroup_id</span>, <span class="va">protein_id</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Seed orthogroups from RBH connected components"</span><span class="op">)</span></span></code></pre></div>
+<table class="table">
+<caption>Seed orthogroups from RBH connected components</caption>
+<thead><tr class="header">
+<th align="left">orthogroup_id</th>
+<th align="left">protein_id</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">OG0001</td>
+<td align="left">ncra_act</td>
+</tr>
+<tr class="even">
+<td align="left">OG0001</td>
+<td align="left">spom_act1</td>
+</tr>
+<tr class="odd">
+<td align="left">OG0002</td>
+<td align="left">ncra_cyc1</td>
+</tr>
+<tr class="even">
+<td align="left">OG0002</td>
+<td align="left">spom_cyc1</td>
+</tr>
+<tr class="odd">
+<td align="left">OG0003</td>
+<td align="left">ncra_hh3</td>
+</tr>
+<tr class="even">
+<td align="left">OG0003</td>
+<td align="left">scer_HHT1</td>
+</tr>
+<tr class="odd">
+<td align="left">OG0004</td>
+<td align="left">scer_TDH1</td>
+</tr>
+<tr class="even">
+<td align="left">OG0004</td>
+<td align="left">spom_tdh1</td>
+</tr>
+<tr class="odd">
+<td align="left">OG0005</td>
+<td align="left">scer_TEF1</td>
+</tr>
+<tr class="even">
+<td align="left">OG0005</td>
+<td align="left">spom_tef101</td>
+</tr>
+</tbody>
+</table>
+<p>After the seed phase:</p>
+<ul>
+<li>
+<strong>5 orthogroups</strong> with 10 proteins (2 proteins
+each)</li>
+<li>
+<strong>6 singletons</strong>: proteins not in any RBH pair</li>
+</ul>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">seed_summary</span> <span class="op">&lt;-</span> <span class="va">orthogroups_seed</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">orthogroup_id</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/summarise.html" class="external-link">summarize</a></span><span class="op">(</span>n_proteins <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/context.html" class="external-link">n</a></span><span class="op">(</span><span class="op">)</span>, proteins <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">protein_id</span>, collapse <span class="op">=</span> <span class="st">", "</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">seed_summary</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Seed orthogroup composition"</span><span class="op">)</span></span></code></pre></div>
+<table class="table">
+<caption>Seed orthogroup composition</caption>
+<thead><tr class="header">
+<th align="left">orthogroup_id</th>
+<th align="right">n_proteins</th>
+<th align="left">proteins</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">OG0001</td>
+<td align="right">2</td>
+<td align="left">ncra_act, spom_act1</td>
+</tr>
+<tr class="even">
+<td align="left">OG0002</td>
+<td align="right">2</td>
+<td align="left">ncra_cyc1, spom_cyc1</td>
+</tr>
+<tr class="odd">
+<td align="left">OG0003</td>
+<td align="right">2</td>
+<td align="left">ncra_hh3, scer_HHT1</td>
+</tr>
+<tr class="even">
+<td align="left">OG0004</td>
+<td align="right">2</td>
+<td align="left">scer_TDH1, spom_tdh1</td>
+</tr>
+<tr class="odd">
+<td align="left">OG0005</td>
+<td align="right">2</td>
+<td align="left">scer_TEF1, spom_tef101</td>
+</tr>
+</tbody>
+</table>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span></span>
+<span><span class="co"># List singletons</span></span>
+<span><span class="va">all_proteins_list</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">proteins</span><span class="op">$</span><span class="va">assemblies</span>, <span class="kw">function</span><span class="op">(</span><span class="va">ps</span><span class="op">)</span> <span class="va">ps</span><span class="op">$</span><span class="va">proteins</span><span class="op">$</span><span class="va">protein_id</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">singletons</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">setdiff</a></span><span class="op">(</span><span class="va">all_proteins_list</span>, <span class="va">orthogroups_seed</span><span class="op">$</span><span class="va">protein_id</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nSingletons after seed phase:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">singletons</span>, collapse <span class="op">=</span> <span class="st">", "</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Singletons after seed phase: ncra_gpd1, ncra_tef1, scer_ACT1, scer_CYC1, scer_MFA1, spom_hht1</span></span></code></pre></div>
+<p>The actins (<code>scer_ACT1</code>), GAPDH (<code>ncra_gpd1</code>),
+cytochrome c (<code>scer_CYC1</code>), EF-1α (<code>ncra_tef1</code>),
+and histone H3 (<code>spom_hht1</code>) are all singletons - they
+weren’t part of any RBH pair even though they have clear orthologs!</p>
+</div>
+<div class="section level2">
+<h2 id="step-5-expansion-phase">Step 5: Expansion Phase<a class="anchor" aria-label="anchor" href="#step-5-expansion-phase"></a>
+</h2>
+<p>The expansion phase addresses the RBH limitation by adding singletons
+to existing orthogroups when their best hit is already a cluster
+member:</p>
+<ol style="list-style-type: decimal">
+<li>For each singleton, find its best hit</li>
+<li>If that hit is in an orthogroup, add the singleton to that
+group</li>
+<li>Repeat until no more proteins can be added</li>
+</ol>
+<div class="section level3">
+<h3 id="the-diamond-hits-behind-rbh-pairs">The DIAMOND hits behind RBH pairs<a class="anchor" aria-label="anchor" href="#the-diamond-hits-behind-rbh-pairs"></a>
+</h3>
+<p>First, let’s see the actual DIAMOND output rows that support the 5
+RBH pairs. For each RBH pair, both directions must be best hits:</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Get the DIAMOND hits that form RBH pairs</span></span>
+<span><span class="co"># For each RBH pair, show both directions from the original DIAMOND output</span></span>
+<span><span class="va">rbh_evidence</span> <span class="op">&lt;-</span> <span class="va">rbh_pairs</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/rowwise.html" class="external-link">rowwise</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
+<span>    <span class="co"># Get hit A -&gt; B</span></span>
+<span>    hit_ab <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">hits_filtered</span> <span class="op">|&gt;</span></span>
+<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">qseqid</span> <span class="op">==</span> <span class="va">protein_a</span>, <span class="va">sseqid</span> <span class="op">==</span> <span class="va">protein_b</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">qseqid</span>, <span class="va">sseqid</span>, <span class="va">pident</span>, <span class="va">bitscore</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    <span class="co"># Get hit B -&gt; A</span></span>
+<span>    hit_ba <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">hits_filtered</span> <span class="op">|&gt;</span></span>
+<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">qseqid</span> <span class="op">==</span> <span class="va">protein_b</span>, <span class="va">sseqid</span> <span class="op">==</span> <span class="va">protein_a</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>      <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">qseqid</span>, <span class="va">sseqid</span>, <span class="va">pident</span>, <span class="va">bitscore</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">ungroup</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Combine into one table</span></span>
+<span><span class="va">rbh_hits</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">bind_rows</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">bind_rows</a></span><span class="op">(</span><span class="va">rbh_evidence</span><span class="op">$</span><span class="va">hit_ab</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">bind_rows</a></span><span class="op">(</span><span class="va">rbh_evidence</span><span class="op">$</span><span class="va">hit_ba</span><span class="op">)</span></span>
+<span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange</a></span><span class="op">(</span><span class="va">qseqid</span>, <span class="fu"><a href="https://dplyr.tidyverse.org/reference/desc.html" class="external-link">desc</a></span><span class="op">(</span><span class="va">bitscore</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">rbh_hits</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span></span>
+<span>    caption <span class="op">=</span> <span class="st">"DIAMOND hits for RBH pairs (both directions)"</span>,</span>
+<span>    col.names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Query"</span>, <span class="st">"Subject"</span>, <span class="st">"% Identity"</span>, <span class="st">"Bitscore"</span><span class="op">)</span>,</span>
+<span>    digits <span class="op">=</span> <span class="fl">1</span></span>
+<span>  <span class="op">)</span></span></code></pre></div>
+<table class="table">
+<caption>DIAMOND hits for RBH pairs (both directions)</caption>
+<thead><tr class="header">
+<th align="left">Query</th>
+<th align="left">Subject</th>
+<th align="right">% Identity</th>
+<th align="right">Bitscore</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">ncra_act</td>
+<td align="left">spom_act1</td>
+<td align="right">92.0</td>
+<td align="right">716</td>
+</tr>
+<tr class="even">
+<td align="left">ncra_cyc1</td>
+<td align="left">spom_cyc1</td>
+<td align="right">70.4</td>
+<td align="right">175</td>
+</tr>
+<tr class="odd">
+<td align="left">ncra_hh3</td>
+<td align="left">scer_HHT1</td>
+<td align="right">94.9</td>
+<td align="right">236</td>
+</tr>
+<tr class="even">
+<td align="left">scer_HHT1</td>
+<td align="left">ncra_hh3</td>
+<td align="right">94.9</td>
+<td align="right">235</td>
+</tr>
+<tr class="odd">
+<td align="left">scer_TDH1</td>
+<td align="left">spom_tdh1</td>
+<td align="right">70.7</td>
+<td align="right">475</td>
+</tr>
+<tr class="even">
+<td align="left">scer_TEF1</td>
+<td align="left">spom_tef101</td>
+<td align="right">87.1</td>
+<td align="right">812</td>
+</tr>
+<tr class="odd">
+<td align="left">spom_act1</td>
+<td align="left">ncra_act</td>
+<td align="right">92.0</td>
+<td align="right">716</td>
+</tr>
+<tr class="even">
+<td align="left">spom_cyc1</td>
+<td align="left">ncra_cyc1</td>
+<td align="right">70.4</td>
+<td align="right">177</td>
+</tr>
+<tr class="odd">
+<td align="left">spom_tdh1</td>
+<td align="left">scer_TDH1</td>
+<td align="right">70.7</td>
+<td align="right">470</td>
+</tr>
+<tr class="even">
+<td align="left">spom_tef101</td>
+<td align="left">scer_TEF1</td>
+<td align="right">86.7</td>
+<td align="right">808</td>
+</tr>
+</tbody>
+</table>
+<p>Each protein in an RBH pair has the other as its top hit (highest
+bitscore).</p>
+</div>
+<div class="section level3">
+<h3 id="the-diamond-hits-behind-expansion">The DIAMOND hits behind expansion<a class="anchor" aria-label="anchor" href="#the-diamond-hits-behind-expansion"></a>
+</h3>
+<p>Now let’s see the DIAMOND evidence for expansion. Each singleton’s
+best hit must be in an existing cluster:</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">expansion_trace</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">clustering_dir</span>, <span class="st">"expansion_trace.rds"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># For each singleton, show its DIAMOND hits (best hit first)</span></span>
+<span><span class="va">singletons_list</span> <span class="op">&lt;-</span> <span class="va">expansion_trace</span><span class="op">$</span><span class="va">singleton</span></span>
+<span></span>
+<span><span class="va">singleton_hits</span> <span class="op">&lt;-</span> <span class="va">hits_filtered</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">qseqid</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">singletons_list</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">qseqid</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/desc.html" class="external-link">desc</a></span><span class="op">(</span><span class="va">bitscore</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/slice.html" class="external-link">slice_head</a></span><span class="op">(</span>n <span class="op">=</span> <span class="fl">2</span><span class="op">)</span> <span class="op">|&gt;</span>  <span class="co"># Show top 2 hits for context</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">ungroup</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">qseqid</span>, <span class="va">sseqid</span>, <span class="va">pident</span>, <span class="va">bitscore</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Add cluster membership info</span></span>
+<span><span class="va">clustered_proteins</span> <span class="op">&lt;-</span> <span class="va">orthogroups_seed</span><span class="op">$</span><span class="va">protein_id</span></span>
+<span><span class="va">singleton_hits</span> <span class="op">&lt;-</span> <span class="va">singleton_hits</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
+<span>    hit_in_cluster <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">sseqid</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">clustered_proteins</span>, <span class="st">"Yes"</span>, <span class="st">"No"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span></span>
+<span><span class="va">singleton_hits</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span></span>
+<span>    caption <span class="op">=</span> <span class="st">"DIAMOND hits from singletons (top 2 per singleton)"</span>,</span>
+<span>    col.names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Singleton"</span>, <span class="st">"Hit"</span>, <span class="st">"% Identity"</span>, <span class="st">"Bitscore"</span>, <span class="st">"Hit in cluster?"</span><span class="op">)</span>,</span>
+<span>    digits <span class="op">=</span> <span class="fl">1</span></span>
+<span>  <span class="op">)</span></span></code></pre></div>
+<table class="table">
+<caption>DIAMOND hits from singletons (top 2 per singleton)</caption>
+<thead><tr class="header">
+<th align="left">Singleton</th>
+<th align="left">Hit</th>
+<th align="right">% Identity</th>
+<th align="right">Bitscore</th>
+<th align="left">Hit in cluster?</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">ncra_gpd1</td>
+<td align="left">spom_tdh1</td>
+<td align="right">69.1</td>
+<td align="right">463</td>
+<td align="left">Yes</td>
+</tr>
+<tr class="even">
+<td align="left">ncra_gpd1</td>
+<td align="left">scer_TDH1</td>
+<td align="right">63.7</td>
+<td align="right">438</td>
+<td align="left">Yes</td>
+</tr>
+<tr class="odd">
+<td align="left">ncra_tef1</td>
+<td align="left">spom_tef101</td>
+<td align="right">86.1</td>
+<td align="right">807</td>
+<td align="left">Yes</td>
+</tr>
+<tr class="even">
+<td align="left">ncra_tef1</td>
+<td align="left">scer_TEF1</td>
+<td align="right">85.7</td>
+<td align="right">795</td>
+<td align="left">Yes</td>
+</tr>
+<tr class="odd">
+<td align="left">scer_ACT1</td>
+<td align="left">ncra_act</td>
+<td align="right">92.0</td>
+<td align="right">708</td>
+<td align="left">Yes</td>
+</tr>
+<tr class="even">
+<td align="left">scer_ACT1</td>
+<td align="left">spom_act1</td>
+<td align="right">89.6</td>
+<td align="right">696</td>
+<td align="left">Yes</td>
+</tr>
+<tr class="odd">
+<td align="left">scer_CYC1</td>
+<td align="left">ncra_cyc1</td>
+<td align="right">69.2</td>
+<td align="right">165</td>
+<td align="left">Yes</td>
+</tr>
+<tr class="even">
+<td align="left">scer_CYC1</td>
+<td align="left">spom_cyc1</td>
+<td align="right">70.2</td>
+<td align="right">159</td>
+<td align="left">Yes</td>
+</tr>
+<tr class="odd">
+<td align="left">spom_hht1</td>
+<td align="left">ncra_hh3</td>
+<td align="right">92.6</td>
+<td align="right">235</td>
+<td align="left">Yes</td>
+</tr>
+<tr class="even">
+<td align="left">spom_hht1</td>
+<td align="left">scer_HHT1</td>
+<td align="right">92.6</td>
+<td align="right">232</td>
+<td align="left">Yes</td>
+</tr>
+</tbody>
+</table>
+<p>For each singleton, the best hit (highest bitscore) is already in a
+seed cluster, so the singleton joins that cluster.</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Summarize the joins</span></span>
+<span><span class="va">expansion_trace</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">singleton</span>, <span class="va">best_hit</span>, <span class="va">best_hit_bitscore</span>, <span class="va">target_cluster</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span></span>
+<span>    caption <span class="op">=</span> <span class="st">"Expansion decisions: singleton joins cluster via best hit"</span>,</span>
+<span>    col.names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Singleton"</span>, <span class="st">"Best hit"</span>, <span class="st">"Bitscore"</span>, <span class="st">"Joins cluster"</span><span class="op">)</span>,</span>
+<span>    digits <span class="op">=</span> <span class="fl">0</span></span>
+<span>  <span class="op">)</span></span></code></pre></div>
+<table class="table">
+<caption>Expansion decisions: singleton joins cluster via best
+hit</caption>
+<thead><tr class="header">
+<th align="left">Singleton</th>
+<th align="left">Best hit</th>
+<th align="right">Bitscore</th>
+<th align="left">Joins cluster</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">ncra_gpd1</td>
+<td align="left">spom_tdh1</td>
+<td align="right">463</td>
+<td align="left">OG0004</td>
+</tr>
+<tr class="even">
+<td align="left">ncra_tef1</td>
+<td align="left">spom_tef101</td>
+<td align="right">807</td>
+<td align="left">OG0005</td>
+</tr>
+<tr class="odd">
+<td align="left">scer_ACT1</td>
+<td align="left">ncra_act</td>
+<td align="right">708</td>
+<td align="left">OG0001</td>
+</tr>
+<tr class="even">
+<td align="left">scer_CYC1</td>
+<td align="left">ncra_cyc1</td>
+<td align="right">165</td>
+<td align="left">OG0002</td>
+</tr>
+<tr class="odd">
+<td align="left">spom_hht1</td>
+<td align="left">ncra_hh3</td>
+<td align="right">235</td>
+<td align="left">OG0003</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level3">
+<h3 id="visualizing-the-clustering-network">Visualizing the clustering network<a class="anchor" aria-label="anchor" href="#visualizing-the-clustering-network"></a>
+</h3>
+<p>The network below shows how DIAMOND scores connect proteins. Edge
+thickness and labels show bitscores from the DIAMOND output. Blue edges
+are RBH pairs (seeds); orange edges show expansion connections.</p>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r.igraph.org/" class="external-link">igraph</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Build edges from RBH pairs with their DIAMOND scores</span></span>
+<span><span class="va">rbh_with_scores</span> <span class="op">&lt;-</span> <span class="va">rbh_pairs</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span></span>
+<span>    <span class="va">hits_filtered</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">qseqid</span>, <span class="va">sseqid</span>, <span class="va">bitscore</span><span class="op">)</span>,</span>
+<span>    by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"protein_a"</span> <span class="op">=</span> <span class="st">"qseqid"</span>, <span class="st">"protein_b"</span> <span class="op">=</span> <span class="st">"sseqid"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span></span>
+<span>    <span class="va">hits_filtered</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">qseqid</span>, <span class="va">sseqid</span>, <span class="va">bitscore</span><span class="op">)</span>,</span>
+<span>    by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"protein_a"</span> <span class="op">=</span> <span class="st">"sseqid"</span>, <span class="st">"protein_b"</span> <span class="op">=</span> <span class="st">"qseqid"</span><span class="op">)</span>,</span>
+<span>    suffix <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">""</span>, <span class="st">"_rev"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>bitscore <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/coalesce.html" class="external-link">coalesce</a></span><span class="op">(</span><span class="va">bitscore</span>, <span class="va">bitscore_rev</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span>from <span class="op">=</span> <span class="va">protein_a</span>, to <span class="op">=</span> <span class="va">protein_b</span>, <span class="va">bitscore</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"RBH (seed)"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Expansion edges already have scores</span></span>
+<span><span class="va">expansion_with_scores</span> <span class="op">&lt;-</span> <span class="va">expansion_trace</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span>from <span class="op">=</span> <span class="va">singleton</span>, to <span class="op">=</span> <span class="va">best_hit</span>, bitscore <span class="op">=</span> <span class="va">best_hit_bitscore</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"Expansion"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Combine all edges</span></span>
+<span><span class="va">all_edges</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">bind_rows</a></span><span class="op">(</span><span class="va">rbh_with_scores</span>, <span class="va">expansion_with_scores</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Get node info (exclude singleton MFA1 which has no edges)</span></span>
+<span><span class="va">nodes</span> <span class="op">&lt;-</span> <span class="va">expected</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">expected_og</span> <span class="op">!=</span> <span class="st">"singleton"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">protein_id</span>, <span class="va">assembly</span>, <span class="va">expected_og</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Create igraph object</span></span>
+<span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r.igraph.org/reference/graph_from_data_frame.html" class="external-link">graph_from_data_frame</a></span><span class="op">(</span><span class="va">all_edges</span>, directed <span class="op">=</span> <span class="cn">FALSE</span>, vertices <span class="op">=</span> <span class="va">nodes</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Use Fruchterman-Reingold layout for natural clustering</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
+<span><span class="va">layout</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r.igraph.org/reference/layout_with_fr.html" class="external-link">layout_with_fr</a></span><span class="op">(</span><span class="va">g</span><span class="op">)</span></span>
+<span><span class="co"># Scale up to increase distance between nodes</span></span>
+<span><span class="va">layout</span> <span class="op">&lt;-</span> <span class="va">layout</span> <span class="op">*</span> <span class="fl">2</span></span>
+<span><span class="va">layout_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="va">layout</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">layout_df</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"x"</span>, <span class="st">"y"</span><span class="op">)</span></span>
+<span><span class="va">layout_df</span><span class="op">$</span><span class="va">protein_id</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r.igraph.org/reference/V.html" class="external-link">V</a></span><span class="op">(</span><span class="va">g</span><span class="op">)</span><span class="op">$</span><span class="va">name</span></span>
+<span></span>
+<span><span class="co"># Add node attributes</span></span>
+<span><span class="va">layout_df</span> <span class="op">&lt;-</span> <span class="va">layout_df</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="va">nodes</span>, by <span class="op">=</span> <span class="st">"protein_id"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Prepare edge coordinates</span></span>
+<span><span class="va">edge_df</span> <span class="op">&lt;-</span> <span class="va">all_edges</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="va">layout_df</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">protein_id</span>, <span class="va">x</span>, <span class="va">y</span><span class="op">)</span>, by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"from"</span> <span class="op">=</span> <span class="st">"protein_id"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/rename.html" class="external-link">rename</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="va">x</span>, y1 <span class="op">=</span> <span class="va">y</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="va">layout_df</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">protein_id</span>, <span class="va">x</span>, <span class="va">y</span><span class="op">)</span>, by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"to"</span> <span class="op">=</span> <span class="st">"protein_id"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/rename.html" class="external-link">rename</a></span><span class="op">(</span>x2 <span class="op">=</span> <span class="va">x</span>, y2 <span class="op">=</span> <span class="va">y</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
+<span>    xmid <span class="op">=</span> <span class="op">(</span><span class="va">x1</span> <span class="op">+</span> <span class="va">x2</span><span class="op">)</span> <span class="op">/</span> <span class="fl">2</span>,</span>
+<span>    ymid <span class="op">=</span> <span class="op">(</span><span class="va">y1</span> <span class="op">+</span> <span class="va">y2</span><span class="op">)</span> <span class="op">/</span> <span class="fl">2</span>,</span>
+<span>    score_label <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">bitscore</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Plot</span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="co"># RBH edges (solid, fixed width)</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_segment.html" class="external-link">geom_segment</a></span><span class="op">(</span></span>
+<span>    data <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">edge_df</span>, <span class="va">type</span> <span class="op">==</span> <span class="st">"RBH (seed)"</span><span class="op">)</span>,</span>
+<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">x1</span>, y <span class="op">=</span> <span class="va">y1</span>, xend <span class="op">=</span> <span class="va">x2</span>, yend <span class="op">=</span> <span class="va">y2</span><span class="op">)</span>,</span>
+<span>    color <span class="op">=</span> <span class="st">"steelblue"</span>, linewidth <span class="op">=</span> <span class="fl">1.5</span>, alpha <span class="op">=</span> <span class="fl">0.8</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="co"># Expansion edges (dashed, fixed width)</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_segment.html" class="external-link">geom_segment</a></span><span class="op">(</span></span>
+<span>    data <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">edge_df</span>, <span class="va">type</span> <span class="op">==</span> <span class="st">"Expansion"</span><span class="op">)</span>,</span>
+<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">x1</span>, y <span class="op">=</span> <span class="va">y1</span>, xend <span class="op">=</span> <span class="va">x2</span>, yend <span class="op">=</span> <span class="va">y2</span><span class="op">)</span>,</span>
+<span>    color <span class="op">=</span> <span class="st">"darkorange"</span>, linewidth <span class="op">=</span> <span class="fl">1.5</span>, linetype <span class="op">=</span> <span class="st">"dashed"</span>, alpha <span class="op">=</span> <span class="fl">0.8</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="co"># Protein nodes (large)</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html" class="external-link">geom_point</a></span><span class="op">(</span></span>
+<span>    data <span class="op">=</span> <span class="va">layout_df</span>,</span>
+<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">x</span>, y <span class="op">=</span> <span class="va">y</span>, color <span class="op">=</span> <span class="va">assembly</span><span class="op">)</span>,</span>
+<span>    size <span class="op">=</span> <span class="fl">14</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="co"># Protein labels (inside nodes)</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_text.html" class="external-link">geom_text</a></span><span class="op">(</span></span>
+<span>    data <span class="op">=</span> <span class="va">layout_df</span>,</span>
+<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">x</span>, y <span class="op">=</span> <span class="va">y</span>, label <span class="op">=</span> <span class="va">protein_id</span><span class="op">)</span>,</span>
+<span>    size <span class="op">=</span> <span class="fl">4.4</span>, fontface <span class="op">=</span> <span class="st">"bold"</span>, color <span class="op">=</span> <span class="st">"black"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="co"># Edge score labels</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_text.html" class="external-link">geom_text</a></span><span class="op">(</span></span>
+<span>    data <span class="op">=</span> <span class="va">edge_df</span>,</span>
+<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">xmid</span>, y <span class="op">=</span> <span class="va">ymid</span>, label <span class="op">=</span> <span class="va">score_label</span><span class="op">)</span>,</span>
+<span>    size <span class="op">=</span> <span class="fl">6</span>, fontface <span class="op">=</span> <span class="st">"bold"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_manual.html" class="external-link">scale_color_manual</a></span><span class="op">(</span></span>
+<span>    values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>ncra <span class="op">=</span> <span class="st">"#E69F00"</span>, spom <span class="op">=</span> <span class="st">"#56B4E9"</span>, scer <span class="op">=</span> <span class="st">"#009E73"</span><span class="op">)</span>,</span>
+<span>    labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>ncra <span class="op">=</span> <span class="st">"N. crassa"</span>, spom <span class="op">=</span> <span class="st">"S. pombe"</span>, scer <span class="op">=</span> <span class="st">"S. cerevisiae"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_cartesian.html" class="external-link">coord_cartesian</a></span><span class="op">(</span>clip <span class="op">=</span> <span class="st">"off"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/expand_limits.html" class="external-link">expand_limits</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">layout_df</span><span class="op">$</span><span class="va">x</span><span class="op">)</span> <span class="op">-</span> <span class="fl">0.5</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">layout_df</span><span class="op">$</span><span class="va">x</span><span class="op">)</span> <span class="op">+</span> <span class="fl">0.5</span><span class="op">)</span>,</span>
+<span>                y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">layout_df</span><span class="op">$</span><span class="va">y</span><span class="op">)</span> <span class="op">-</span> <span class="fl">0.5</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">layout_df</span><span class="op">$</span><span class="va">y</span><span class="op">)</span> <span class="op">+</span> <span class="fl">0.5</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_void</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span></span>
+<span>    title <span class="op">=</span> <span class="st">"Clustering network with DIAMOND bitscores"</span>,</span>
+<span>    subtitle <span class="op">=</span> <span class="st">"Blue solid = RBH pairs (seed clusters), Orange dashed = expansion joins"</span>,</span>
+<span>    color <span class="op">=</span> <span class="st">"Species"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span></span>
+<span>    legend.position <span class="op">=</span> <span class="st">"bottom"</span>,</span>
+<span>    plot.title <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>hjust <span class="op">=</span> <span class="fl">0.5</span>, face <span class="op">=</span> <span class="st">"bold"</span><span class="op">)</span>,</span>
+<span>    plot.subtitle <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>hjust <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span></code></pre></div>
+<p><img src="algorithms_files/figure-html/expansion-network-1.png" class="r-plt" alt="" width="1200"></p>
+<p>The network naturally clusters into 5 groups (the orthogroups).
+Proteins with high DIAMOND scores are pulled together. Notice how each
+orthogroup has 3 members connected by a mix of RBH (seed) and expansion
+edges.</p>
+</div>
+<div class="section level3">
+<h3 id="what-happened-in-expansion">What happened in expansion<a class="anchor" aria-label="anchor" href="#what-happened-in-expansion"></a>
+</h3>
+<p>Take <code>scer_ACT1</code> as an example:</p>
+<ul>
+<li>It’s not in an RBH pair (its best hit <code>ncra_act</code> prefers
+<code>spom_act1</code>)</li>
+<li>But <code>ncra_act</code> IS in OG0001 (via RBH with
+<code>spom_act1</code>)</li>
+<li>So <code>scer_ACT1</code> joins OG0001 through its best-hit
+connection</li>
+</ul>
+<p>This “anchor and expand” strategy lets orthogroups grow beyond strict
+RBH pairs while maintaining the high-confidence RBH relationships as a
+foundation.</p>
+<p>In iteration 1, all 5 “missing” orthologs found their way home:</p>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Show before and after with expected orthogroup names</span></span>
+<span><span class="va">orthogroups_expanded</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">clustering_dir</span>, <span class="st">"orthogroups_expanded.rds"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Add expected orthogroup info</span></span>
+<span><span class="va">protein_info</span> <span class="op">&lt;-</span> <span class="va">expected</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">protein_id</span>, <span class="va">expected_og</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"=== Before Expansion (Seed Phase) ===\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; === Before Expansion (Seed Phase) ===</span></span>
+<span><span class="va">orthogroups_seed</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="va">protein_info</span>, by <span class="op">=</span> <span class="st">"protein_id"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">orthogroup_id</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/summarise.html" class="external-link">summarize</a></span><span class="op">(</span></span>
+<span>    protein_family <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/nth.html" class="external-link">first</a></span><span class="op">(</span><span class="va">expected_og</span><span class="op">)</span>,</span>
+<span>    members <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="va">protein_id</span><span class="op">)</span>, collapse <span class="op">=</span> <span class="st">", "</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<table class="table">
+<thead><tr class="header">
+<th align="left">orthogroup_id</th>
+<th align="left">protein_family</th>
+<th align="left">members</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">OG0001</td>
+<td align="left">OG_actin</td>
+<td align="left">ncra_act, spom_act1</td>
+</tr>
+<tr class="even">
+<td align="left">OG0002</td>
+<td align="left">OG_cyc</td>
+<td align="left">ncra_cyc1, spom_cyc1</td>
+</tr>
+<tr class="odd">
+<td align="left">OG0003</td>
+<td align="left">OG_histone_h3</td>
+<td align="left">ncra_hh3, scer_HHT1</td>
+</tr>
+<tr class="even">
+<td align="left">OG0004</td>
+<td align="left">OG_gapdh</td>
+<td align="left">scer_TDH1, spom_tdh1</td>
+</tr>
+<tr class="odd">
+<td align="left">OG0005</td>
+<td align="left">OG_ef1a</td>
+<td align="left">scer_TEF1, spom_tef101</td>
+</tr>
+</tbody>
+</table>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\n=== After Expansion ===\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; === After Expansion ===</span></span>
+<span><span class="va">orthogroups_expanded</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="va">protein_info</span>, by <span class="op">=</span> <span class="st">"protein_id"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">orthogroup_id</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/summarise.html" class="external-link">summarize</a></span><span class="op">(</span></span>
+<span>    protein_family <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/nth.html" class="external-link">first</a></span><span class="op">(</span><span class="va">expected_og</span><span class="op">)</span>,</span>
+<span>    members <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="va">protein_id</span><span class="op">)</span>, collapse <span class="op">=</span> <span class="st">", "</span><span class="op">)</span>,</span>
+<span>    n <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/context.html" class="external-link">n</a></span><span class="op">(</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<table class="table">
+<thead><tr class="header">
+<th align="left">orthogroup_id</th>
+<th align="left">protein_family</th>
+<th align="left">members</th>
+<th align="right">n</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">OG0001</td>
+<td align="left">OG_actin</td>
+<td align="left">ncra_act, scer_ACT1, spom_act1</td>
+<td align="right">3</td>
+</tr>
+<tr class="even">
+<td align="left">OG0002</td>
+<td align="left">OG_cyc</td>
+<td align="left">ncra_cyc1, scer_CYC1, spom_cyc1</td>
+<td align="right">3</td>
+</tr>
+<tr class="odd">
+<td align="left">OG0003</td>
+<td align="left">OG_histone_h3</td>
+<td align="left">ncra_hh3, scer_HHT1, spom_hht1</td>
+<td align="right">3</td>
+</tr>
+<tr class="even">
+<td align="left">OG0004</td>
+<td align="left">OG_gapdh</td>
+<td align="left">ncra_gpd1, scer_TDH1, spom_tdh1</td>
+<td align="right">3</td>
+</tr>
+<tr class="odd">
+<td align="left">OG0005</td>
+<td align="left">OG_ef1a</td>
+<td align="left">ncra_tef1, scer_TEF1, spom_tef101</td>
+<td align="right">3</td>
+</tr>
+</tbody>
+</table>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span></span>
+<span><span class="co"># Check singleton</span></span>
+<span><span class="va">final_singletons</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">setdiff</a></span><span class="op">(</span><span class="va">all_proteins_list</span>, <span class="va">orthogroups_expanded</span><span class="op">$</span><span class="va">protein_id</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nFinal singleton:"</span>, <span class="va">final_singletons</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Final singleton: scer_MFA1</span></span></code></pre></div>
+<p>All 5 protein families now have their complete set of 3 orthologs,
+and <code>scer_MFA1</code> correctly remains a singleton.</p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="effect-of-parameters">Effect of Parameters<a class="anchor" aria-label="anchor" href="#effect-of-parameters"></a>
+</h2>
+<p>What happens with stricter thresholds? Let’s compare:</p>
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Load strict parameter results</span></span>
+<span><span class="va">hits_strict</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">clustering_dir</span>, <span class="st">"diamond_hits_strict.rds"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">orthogroups_strict</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">clustering_dir</span>, <span class="st">"orthogroups_strict.rds"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Default parameters (min_identity = 30%):\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Default parameters (min_identity = 30%):</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Hits passing filter:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">hits_filtered</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   Hits passing filter: 30</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Orthogroups:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">orthogroups_expanded</span><span class="op">$</span><span class="va">orthogroup_id</span><span class="op">)</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   Orthogroups: 5</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Proteins in orthogroups:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">orthogroups_expanded</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   Proteins in orthogroups: 15</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nStrict parameters (min_identity = 70%):\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Strict parameters (min_identity = 70%):</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Hits passing filter:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">hits_strict</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   Hits passing filter: 24</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Orthogroups:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">orthogroups_strict</span><span class="op">$</span><span class="va">orthogroup_id</span><span class="op">)</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   Orthogroups: 5</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Proteins in orthogroups:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">orthogroups_strict</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   Proteins in orthogroups: 14</span></span></code></pre></div>
+<div class="section level3">
+<h3 id="which-proteins-are-affected">Which proteins are affected?<a class="anchor" aria-label="anchor" href="#which-proteins-are-affected"></a>
+</h3>
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Find proteins that got excluded</span></span>
+<span><span class="va">proteins_strict</span> <span class="op">&lt;-</span> <span class="va">orthogroups_strict</span><span class="op">$</span><span class="va">protein_id</span></span>
+<span><span class="va">proteins_default</span> <span class="op">&lt;-</span> <span class="va">orthogroups_expanded</span><span class="op">$</span><span class="va">protein_id</span></span>
+<span></span>
+<span><span class="va">newly_singletons</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">setdiff</a></span><span class="op">(</span><span class="va">proteins_default</span>, <span class="va">proteins_strict</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Proteins excluded by strict parameters:\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Proteins excluded by strict parameters:</span></span>
+<span><span class="va">expected</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">protein_id</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">newly_singletons</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">protein_id</span>, <span class="va">protein_name</span>, <span class="va">expected_og</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<table class="table">
+<thead><tr class="header">
+<th align="left">protein_id</th>
+<th align="left">protein_name</th>
+<th align="left">expected_og</th>
+</tr></thead>
+<tbody><tr class="odd">
+<td align="left">ncra_gpd1</td>
+<td align="left">Glyceraldehyde-3-phosphate dehydrogenase</td>
+<td align="left">OG_gapdh</td>
+</tr></tbody>
+</table>
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span></span>
+<span><span class="co"># Show the excluded hits</span></span>
+<span><span class="va">hits_filtered</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="op">!</span><span class="va">qseqid</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">proteins_strict</span> <span class="op">|</span> <span class="op">!</span><span class="va">sseqid</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">proteins_strict</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">qseqid</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">newly_singletons</span> <span class="op">|</span> <span class="va">sseqid</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">newly_singletons</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">qseqid</span>, <span class="va">sseqid</span>, <span class="va">pident</span>, <span class="va">bitscore</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/distinct.html" class="external-link">distinct</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Hits excluded by 70% identity threshold"</span><span class="op">)</span></span></code></pre></div>
+<table class="table">
+<caption>Hits excluded by 70% identity threshold</caption>
+<thead><tr class="header">
+<th align="left">qseqid</th>
+<th align="left">sseqid</th>
+<th align="right">pident</th>
+<th align="right">bitscore</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">ncra_gpd1</td>
+<td align="left">spom_tdh1</td>
+<td align="right">69.1</td>
+<td align="right">463</td>
+</tr>
+<tr class="even">
+<td align="left">ncra_gpd1</td>
+<td align="left">scer_TDH1</td>
+<td align="right">63.7</td>
+<td align="right">438</td>
+</tr>
+<tr class="odd">
+<td align="left">scer_TDH1</td>
+<td align="left">ncra_gpd1</td>
+<td align="right">63.7</td>
+<td align="right">441</td>
+</tr>
+<tr class="even">
+<td align="left">spom_tdh1</td>
+<td align="left">ncra_gpd1</td>
+<td align="right">69.1</td>
+<td align="right">461</td>
+</tr>
+</tbody>
+</table>
+<p>The GAPDH and cytochrome c families have cross-species identities
+around 63-69%, below the strict 70% threshold. These proteins become
+incorrectly isolated as singletons with overly strict parameters.</p>
 </div>
 </div>
 <div class="section level2">
 <h2 id="distance-metrics">Distance Metrics<a class="anchor" aria-label="anchor" href="#distance-metrics"></a>
 </h2>
-<p>When clustering assemblies by their orthogroup content, the choice of
-distance metric matters.</p>
+<p>Once orthogroups are assigned, we can build a presence/absence matrix
+(rows = orthogroups, columns = assemblies). To compare how similar two
+assemblies are based on their shared orthogroup content, we need a
+distance metric. This is used for hierarchical clustering and
+visualizations like dendrograms.</p>
 <div class="section level3">
-<h3 id="binary-euclidean">Binary (Euclidean)<a class="anchor" aria-label="anchor" href="#binary-euclidean"></a>
+<h3 id="jaccard-distance-recommended">Jaccard Distance (Recommended)<a class="anchor" aria-label="anchor" href="#jaccard-distance-recommended"></a>
 </h3>
-<p>Simple presence/absence treated as 0/1:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>d</mi><mrow><mi>b</mi><mi>i</mi><mi>n</mi><mi>a</mi><mi>r</mi><mi>y</mi></mrow></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>A</mi><mo>,</mo><mi>B</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msqrt><mrow><munder><mo>∑</mo><mi>i</mi></munder><msup><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>x</mi><mrow><mi>A</mi><mi>i</mi></mrow></msub><mo>−</mo><msub><mi>x</mi><mrow><mi>B</mi><mi>i</mi></mrow></msub><mo stretchy="true" form="postfix">)</mo></mrow><mn>2</mn></msup></mrow></msqrt></mrow><annotation encoding="application/x-tex">d_{binary}(A, B) = \sqrt{\sum_i (x_{Ai} - x_{Bi})^2}</annotation></semantics></math></p>
-<p>Where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>x</mi><mrow><mi>A</mi><mi>i</mi></mrow></msub><annotation encoding="application/x-tex">x_{Ai}</annotation></semantics></math>
-is 1 if orthogroup
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
-is present in assembly
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>,
-else 0.</p>
-<p><strong>Characteristics:</strong> - Sensitive to total number of
-differences - A single shared orthogroup and 100 shared orthogroups
-contribute differently</p>
-</div>
-<div class="section level3">
-<h3 id="jaccard-distance">Jaccard Distance<a class="anchor" aria-label="anchor" href="#jaccard-distance"></a>
-</h3>
-<p>Based on set overlap:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>d</mi><mrow><mi>J</mi><mi>a</mi><mi>c</mi><mi>c</mi><mi>a</mi><mi>r</mi><mi>d</mi></mrow></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>A</mi><mo>,</mo><mi>B</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>1</mn><mo>−</mo><mfrac><mrow><mo stretchy="true" form="prefix">|</mo><mi>A</mi><mo>∩</mo><mi>B</mi><mo stretchy="true" form="postfix">|</mo></mrow><mrow><mo stretchy="true" form="prefix">|</mo><mi>A</mi><mo>∪</mo><mi>B</mi><mo stretchy="true" form="postfix">|</mo></mrow></mfrac></mrow><annotation encoding="application/x-tex">d_{Jaccard}(A, B) = 1 - \frac{|A \cap B|}{|A \cup B|}</annotation></semantics></math></p>
-<p>Where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="true" form="prefix">|</mo><mi>A</mi><mo>∩</mo><mi>B</mi><mo stretchy="true" form="postfix">|</mo></mrow><annotation encoding="application/x-tex">|A \cap B|</annotation></semantics></math>
-is orthogroups present in both, and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="true" form="prefix">|</mo><mi>A</mi><mo>∪</mo><mi>B</mi><mo stretchy="true" form="postfix">|</mo></mrow><annotation encoding="application/x-tex">|A \cup B|</annotation></semantics></math>
-is orthogroups present in either.</p>
-<p><strong>Characteristics:</strong> - Normalized to [0, 1] - Ignores
-shared absences (double zeros) - Good for sparse presence/absence data -
-<strong>Recommended for most pan-genome analyses</strong></p>
-</div>
-<div class="section level3">
-<h3 id="bray-curtis-distance">Bray-Curtis Distance<a class="anchor" aria-label="anchor" href="#bray-curtis-distance"></a>
-</h3>
-<p>Originally for abundance data, but works with binary:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>d</mi><mrow><mi>B</mi><mi>C</mi></mrow></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>A</mi><mo>,</mo><mi>B</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mfrac><mrow><munder><mo>∑</mo><mi>i</mi></munder><mrow><mo stretchy="true" form="prefix">|</mo><msub><mi>x</mi><mrow><mi>A</mi><mi>i</mi></mrow></msub><mo>−</mo><msub><mi>x</mi><mrow><mi>B</mi><mi>i</mi></mrow></msub><mo stretchy="true" form="postfix">|</mo></mrow></mrow><mrow><munder><mo>∑</mo><mi>i</mi></munder><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>x</mi><mrow><mi>A</mi><mi>i</mi></mrow></msub><mo>+</mo><msub><mi>x</mi><mrow><mi>B</mi><mi>i</mi></mrow></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow></mfrac></mrow><annotation encoding="application/x-tex">d_{BC}(A, B) = \frac{\sum_i |x_{Ai} - x_{Bi}|}{\sum_i (x_{Ai} + x_{Bi})}</annotation></semantics></math></p>
-<p><strong>Characteristics:</strong> - Normalized to [0, 1] - Ignores
-shared absences - Weighs by total presence (assemblies with more
-orthogroups contribute more)</p>
-</div>
-<div class="section level3">
-<h3 id="choosing-a-distance-metric">Choosing a Distance Metric<a class="anchor" aria-label="anchor" href="#choosing-a-distance-metric"></a>
-</h3>
-<table class="table">
-<thead><tr class="header">
-<th>Scenario</th>
-<th>Recommended</th>
-<th>Rationale</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td>General pan-genome</td>
-<td>Jaccard</td>
-<td>Standard for presence/absence</td>
-</tr>
-<tr class="even">
-<td>Variable genome sizes</td>
-<td>Jaccard</td>
-<td>Normalizes for size differences</td>
-</tr>
-<tr class="odd">
-<td>With abundance/scores</td>
-<td>Bray-Curtis</td>
-<td>Handles quantitative data</td>
-</tr>
-<tr class="even">
-<td>Simple comparison</td>
-<td>Binary</td>
-<td>Easy to interpret</td>
-</tr>
-</tbody>
-</table>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Load example data</span></span>
+<p>The <a href="https://en.wikipedia.org/wiki/Jaccard_index" class="external-link">Jaccard
+index</a> measures similarity as the size of the intersection divided by
+the size of the union. The distance is 1 minus this similarity, ignoring
+shared absences:
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>d</mi><mrow><mi>J</mi><mi>a</mi><mi>c</mi><mi>c</mi><mi>a</mi><mi>r</mi><mi>d</mi></mrow></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>A</mi><mo>,</mo><mi>B</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>1</mn><mo>−</mo><mfrac><mrow><mo stretchy="true" form="prefix">|</mo><mi>A</mi><mo>∩</mo><mi>B</mi><mo stretchy="true" form="postfix">|</mo></mrow><mrow><mo stretchy="true" form="prefix">|</mo><mi>A</mi><mo>∪</mo><mi>B</mi><mo stretchy="true" form="postfix">|</mo></mrow></mfrac></mrow><annotation encoding="application/x-tex">d_{Jaccard}(A, B) = 1 - \frac{|A \cap B|}{|A \cup B|}</annotation></semantics></math></p>
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Load example data from visual testdata</span></span>
 <span><span class="va">visual_dir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"testdata"</span>, <span class="st">"visual"</span>, package <span class="op">=</span> <span class="st">"paneffectR"</span><span class="op">)</span></span>
 <span><span class="va">pa</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">visual_dir</span>, <span class="st">"pa_binary.rds"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Compare dendrograms with different metrics</span></span>
 <span><span class="fu"><a href="../reference/plot_dendro.html">plot_dendro</a></span><span class="op">(</span><span class="va">pa</span>, distance_method <span class="op">=</span> <span class="st">"jaccard"</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">ggtitle</a></span><span class="op">(</span><span class="st">"Jaccard Distance"</span><span class="op">)</span></span></code></pre></div>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">ggtitle</a></span><span class="op">(</span><span class="st">"Assembly clustering with Jaccard distance"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="algorithms_files/figure-html/distance-example-1.png" class="r-plt" alt="" width="1050"></p>
+</div>
+<div class="section level3">
+<h3 id="other-distance-options">Other distance options<a class="anchor" aria-label="anchor" href="#other-distance-options"></a>
+</h3>
+<p><strong>Binary (Euclidean)</strong>: Square root of the number of
+orthogroups where two assemblies differ.</p>
+<p><strong>Bray-Curtis</strong>: Originally designed for abundance data,
+but works with binary. See <a href="https://en.wikipedia.org/wiki/Bray%E2%80%93Curtis_dissimilarity" class="external-link">Wikipedia</a>.</p>
+<table class="table">
+<thead><tr class="header">
+<th>Method</th>
+<th>Best for</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>jaccard</code></td>
+<td>Presence/absence data (default)</td>
+</tr>
+<tr class="even">
+<td><code>binary</code></td>
+<td>When total differences matter more than proportions</td>
+</tr>
+<tr class="odd">
+<td><code>bray</code></td>
+<td>Abundance or score data</td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 <div class="section level2">
 <h2 id="hierarchical-clustering-methods">Hierarchical Clustering Methods<a class="anchor" aria-label="anchor" href="#hierarchical-clustering-methods"></a>
 </h2>
-<p>After computing distances, assemblies are clustered hierarchically.
-The method determines how clusters are merged.</p>
-<div class="section level3">
-<h3 id="complete-linkage">Complete Linkage<a class="anchor" aria-label="anchor" href="#complete-linkage"></a>
-</h3>
-<p>Distance between clusters = maximum distance between any pair of
-members.</p>
-<p><strong>Characteristics:</strong> - Produces compact, spherical
-clusters - Sensitive to outliers - Tends to find similar-sized
-clusters</p>
-</div>
-<div class="section level3">
-<h3 id="average-linkage-upgma">Average Linkage (UPGMA)<a class="anchor" aria-label="anchor" href="#average-linkage-upgma"></a>
-</h3>
-<p>Distance between clusters = average distance between all pairs of
-members.</p>
-<p><strong>Characteristics:</strong> - Balanced approach - Less
-sensitive to outliers than complete - Common in phylogenetics</p>
-</div>
-<div class="section level3">
-<h3 id="wards-method">Ward’s Method<a class="anchor" aria-label="anchor" href="#wards-method"></a>
-</h3>
-<p>Minimizes within-cluster variance at each merge.</p>
-<p><strong>Characteristics:</strong> - Tends to produce equal-sized
-clusters - Good for finding natural groupings - Most aggressive at
-creating distinct clusters</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Compare clustering methods</span></span>
+<p>After computing distances, assemblies are clustered
+hierarchically:</p>
+<table class="table">
+<thead><tr class="header">
+<th>Method</th>
+<th>Behavior</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>complete</code></td>
+<td>Conservative - maximizes distances between clusters</td>
+</tr>
+<tr class="even">
+<td><code>average</code></td>
+<td>Balanced - common in phylogenetics</td>
+</tr>
+<tr class="odd">
+<td><code>ward.D2</code></td>
+<td>Creates distinct, equal-sized clusters</td>
+</tr>
+</tbody>
+</table>
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Compare methods</span></span>
 <span><span class="fu"><a href="../reference/plot_dendro.html">plot_dendro</a></span><span class="op">(</span><span class="va">pa</span>, cluster_method <span class="op">=</span> <span class="st">"complete"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/plot_dendro.html">plot_dendro</a></span><span class="op">(</span><span class="va">pa</span>, cluster_method <span class="op">=</span> <span class="st">"average"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/plot_dendro.html">plot_dendro</a></span><span class="op">(</span><span class="va">pa</span>, cluster_method <span class="op">=</span> <span class="st">"ward.D2"</span><span class="op">)</span></span></code></pre></div>
 </div>
-<div class="section level3">
-<h3 id="choosing-a-clustering-method">Choosing a Clustering Method<a class="anchor" aria-label="anchor" href="#choosing-a-clustering-method"></a>
-</h3>
-<table class="table">
-<thead><tr class="header">
-<th>Scenario</th>
-<th>Recommended</th>
-<th>Rationale</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td>Exploratory analysis</td>
-<td>Ward’s</td>
-<td>Finds clear groupings</td>
-</tr>
-<tr class="even">
-<td>Phylogenetic context</td>
-<td>Average (UPGMA)</td>
-<td>Standard in phylogenetics</td>
-</tr>
-<tr class="odd">
-<td>Outlier detection</td>
-<td>Complete</td>
-<td>Highlights distant assemblies</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
 <div class="section level2">
 <h2 id="handling-singletons">Handling Singletons<a class="anchor" aria-label="anchor" href="#handling-singletons"></a>
 </h2>
-<p>Singletons are proteins not assigned to any orthogroup - they have no
-significant matches to proteins in other assemblies.</p>
-<div class="section level3">
-<h3 id="why-singletons-exist">Why Singletons Exist<a class="anchor" aria-label="anchor" href="#why-singletons-exist"></a>
-</h3>
+<p>Singletons are proteins not assigned to any orthogroup. They may
+represent:</p>
 <ol style="list-style-type: decimal">
 <li>
-<strong>True uniques</strong>: Assembly-specific genes (e.g.,
-horizontally transferred)</li>
+<strong>True unique genes</strong>: Horizontally transferred,
+species-specific</li>
 <li>
-<strong>Divergent homologs</strong>: Too divergent to pass
+<strong>Divergent homologs</strong>: Too different to pass
 similarity thresholds</li>
 <li>
-<strong>Assembly artifacts</strong>: Fragmented genes,
-contamination</li>
-<li>
-<strong>Annotation artifacts</strong>: Mis-predicted ORFs</li>
+<strong>Artifacts</strong>: Mis-predicted ORFs, fragmented
+assemblies</li>
 </ol>
-</div>
-<div class="section level3">
-<h3 id="including-vs-excluding-singletons">Including vs Excluding Singletons<a class="anchor" aria-label="anchor" href="#including-vs-excluding-singletons"></a>
-</h3>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">visual_dir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"testdata"</span>, <span class="st">"visual"</span>, package <span class="op">=</span> <span class="st">"paneffectR"</span><span class="op">)</span></span>
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Using the visual test data</span></span>
+<span><span class="va">visual_dir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"testdata"</span>, <span class="st">"visual"</span>, package <span class="op">=</span> <span class="st">"paneffectR"</span><span class="op">)</span></span>
 <span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">visual_dir</span>, <span class="st">"clusters_visual.rds"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># With singletons (default)</span></span>
+<span><span class="co"># Compare with and without singletons</span></span>
 <span><span class="va">pa_with</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_pa_matrix.html">build_pa_matrix</a></span><span class="op">(</span><span class="va">clusters</span>, exclude_singletons <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Without singletons</span></span>
 <span><span class="va">pa_without</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_pa_matrix.html">build_pa_matrix</a></span><span class="op">(</span><span class="va">clusters</span>, exclude_singletons <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"With singletons:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">pa_with</span><span class="op">$</span><span class="va">matrix</span><span class="op">)</span>, <span class="st">"orthogroups\n"</span><span class="op">)</span></span>
@@ -423,169 +1612,35 @@ contamination</li>
 <p><strong>When to include singletons:</strong> - Analyzing unique gene
 content - Calculating pan-genome size - Studying accessory genome</p>
 <p><strong>When to exclude singletons:</strong> - Focusing on shared
-variation - Phylogenetic analysis - Reducing noise from artifacts</p>
-</div>
-<div class="section level3">
-<h3 id="singleton-statistics">Singleton Statistics<a class="anchor" aria-label="anchor" href="#singleton-statistics"></a>
-</h3>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Total singletons</span></span>
-<span><span class="fu"><a href="../reference/n_singletons.html">n_singletons</a></span><span class="op">(</span><span class="va">clusters</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 0</span></span>
-<span></span>
-<span><span class="co"># Per assembly</span></span>
-<span><span class="fu"><a href="../reference/singletons_by_assembly.html">singletons_by_assembly</a></span><span class="op">(</span><span class="va">clusters</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 0 × 2</span></span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 2 variables: assembly &lt;chr&gt;, n_singletons &lt;int&gt;</span></span></span>
-<span></span>
-<span><span class="co"># Access singleton data directly</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="../reference/get_singletons.html">get_singletons</a></span><span class="op">(</span><span class="va">clusters</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 0 × 2</span></span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 2 variables: protein_id &lt;chr&gt;, assembly &lt;chr&gt;</span></span></span></code></pre></div>
-</div>
+variation - Phylogenetic analysis - Reducing noise</p>
 </div>
 <div class="section level2">
-<h2 id="alternative-clustering-backends">Alternative Clustering Backends<a class="anchor" aria-label="anchor" href="#alternative-clustering-backends"></a>
+<h2 id="future-additions">Future Additions<a class="anchor" aria-label="anchor" href="#future-additions"></a>
 </h2>
-<p>paneffectR supports multiple clustering tools:</p>
+<p>The <code><a href="../reference/cluster_proteins.html">cluster_proteins()</a></code> function is designed to support
+multiple clustering backends. Currently only DIAMOND RBH is implemented,
+but the interface accepts a <code>method</code> parameter for future
+expansion:</p>
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span>, method <span class="op">=</span> <span class="st">"diamond_rbh"</span><span class="op">)</span>  <span class="co"># Current default</span></span>
+<span><span class="fu"><a href="../reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span>, method <span class="op">=</span> <span class="st">"orthofinder"</span><span class="op">)</span>  <span class="co"># Planned</span></span>
+<span><span class="fu"><a href="../reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span>, method <span class="op">=</span> <span class="st">"mmseqs2"</span><span class="op">)</span>      <span class="co"># Planned</span></span></code></pre></div>
 <div class="section level3">
 <h3 id="orthofinder">OrthoFinder<a class="anchor" aria-label="anchor" href="#orthofinder"></a>
 </h3>
-<p>Comprehensive ortholog inference using gene trees:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span>, method <span class="op">=</span> <span class="st">"orthofinder"</span><span class="op">)</span></span></code></pre></div>
-<p><strong>Advantages:</strong> - Gold standard for orthology - Handles
-paralogs correctly - Builds species tree</p>
-<p><strong>Disadvantages:</strong> - Slower than DIAMOND RBH - More
-complex output</p>
+<p><a href="https://github.com/davidemms/OrthoFinder" class="external-link">OrthoFinder</a>
+infers orthogroups using gene trees and is considered a gold standard
+for orthology inference. It handles paralogs more rigorously than
+RBH-based methods but requires more computation time.</p>
 </div>
 <div class="section level3">
 <h3 id="mmseqs2">MMseqs2<a class="anchor" aria-label="anchor" href="#mmseqs2"></a>
 </h3>
-<p>Ultra-fast clustering for large datasets:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span>, method <span class="op">=</span> <span class="st">"mmseqs2"</span><span class="op">)</span></span></code></pre></div>
-<p><strong>Advantages:</strong> - Extremely fast - Scales to millions of
-proteins - Low memory usage</p>
-<p><strong>Disadvantages:</strong> - Less sensitive than DIAMOND -
-Greedy clustering (order-dependent)</p>
+<p><a href="https://github.com/soedinglab/MMseqs2" class="external-link">MMseqs2</a> provides
+ultra-fast protein clustering suitable for very large datasets. Its
+greedy clustering approach trades some sensitivity for speed, making it
+useful when analysing hundreds of assemblies.</p>
 </div>
-<div class="section level3">
-<h3 id="importing-precomputed-results">Importing Precomputed Results<a class="anchor" aria-label="anchor" href="#importing-precomputed-results"></a>
-</h3>
-<p>Use existing ortholog definitions:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Import OrthoFinder results</span></span>
-<span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span></span>
-<span>  <span class="va">proteins</span>,</span>
-<span>  method <span class="op">=</span> <span class="st">"precomputed"</span>,</span>
-<span>  precomputed_path <span class="op">=</span> <span class="st">"path/to/Orthogroups.tsv"</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Import custom CSV (must have: orthogroup_id, assembly, protein_id)</span></span>
-<span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span></span>
-<span>  <span class="va">proteins</span>,</span>
-<span>  method <span class="op">=</span> <span class="st">"precomputed"</span>,</span>
-<span>  precomputed_path <span class="op">=</span> <span class="st">"my_orthogroups.csv"</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-</div>
-</div>
-<div class="section level2">
-<h2 id="performance-considerations">Performance Considerations<a class="anchor" aria-label="anchor" href="#performance-considerations"></a>
-</h2>
-<div class="section level3">
-<h3 id="memory">Memory<a class="anchor" aria-label="anchor" href="#memory"></a>
-</h3>
-<ul>
-<li>Presence/absence matrices are sparse; consider for very large
-datasets</li>
-<li>DIAMOND all-vs-all output can be large; temporary files are cleaned
-up</li>
-</ul>
-</div>
-<div class="section level3">
-<h3 id="speed">Speed<a class="anchor" aria-label="anchor" href="#speed"></a>
-</h3>
-<table class="table">
-<colgroup>
-<col width="42%">
-<col width="57%">
-</colgroup>
-<thead><tr class="header">
-<th>Dataset Size</th>
-<th>Recommended Method</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td>&lt; 10 assemblies</td>
-<td><code>diamond_rbh</code></td>
-</tr>
-<tr class="even">
-<td>10-100 assemblies</td>
-<td>
-<code>diamond_rbh</code> with <code>mode = "fast"</code>
-</td>
-</tr>
-<tr class="odd">
-<td>&gt; 100 assemblies</td>
-<td><code>mmseqs2</code></td>
-</tr>
-<tr class="even">
-<td>Very divergent</td>
-<td>
-<code>orthofinder</code> or <code>diamond_rbh</code> with
-<code>mode = "thorough"</code>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="section level3">
-<h3 id="parallelization">Parallelization<a class="anchor" aria-label="anchor" href="#parallelization"></a>
-</h3>
-<p>Clustering tools use multiple threads automatically:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Control thread count</span></span>
-<span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span>, threads <span class="op">=</span> <span class="fl">8</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Auto-detect (default)</span></span>
-<span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span><span class="op">)</span>  <span class="co"># Uses available cores</span></span></code></pre></div>
-</div>
-</div>
-<div class="section level2">
-<h2 id="summary">Summary<a class="anchor" aria-label="anchor" href="#summary"></a>
-</h2>
-<table class="table">
-<thead><tr class="header">
-<th>Component</th>
-<th>Default</th>
-<th>Alternatives</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td>Clustering</td>
-<td>DIAMOND RBH + expansion</td>
-<td>OrthoFinder, MMseqs2</td>
-</tr>
-<tr class="even">
-<td>Distance</td>
-<td>Jaccard</td>
-<td>Binary, Bray-Curtis</td>
-</tr>
-<tr class="odd">
-<td>Hierarchical clustering</td>
-<td>Complete</td>
-<td>Average, Ward’s</td>
-</tr>
-<tr class="even">
-<td>Singletons</td>
-<td>Included</td>
-<td>Can exclude</td>
-</tr>
-</tbody>
-</table>
-<p>The defaults are chosen for a good balance of speed and accuracy for
-typical pan-genome analyses of related organisms.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
