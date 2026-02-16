@@ -81,6 +81,8 @@ reference:
       - plot_upset
       - plot_scores
       - plot_dendro
+      - plot_pan_structure
+      - plot_assembly_composition
 
   - title: Utilities
     desc: >
