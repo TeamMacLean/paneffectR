@@ -1,4 +1,4 @@
-url: https://USER.github.io/paneffectR/
+url: https://TeamMacLean.github.io/paneffectR/
 
 template:
   bootstrap: 5
@@ -61,6 +61,9 @@ reference:
       Build presence/absence matrices from clustering results.
     contents:
       - build_pa_matrix
+      - filter_by_score
+      - "`[.pa_matrix`"
+      - "`as.data.frame.pa_matrix`"
 
   - title: Singletons
     desc: >

@@ -537,9 +537,10 @@ test_that("cluster_proteins dispatches to diamond_rbh", {
   expect_equal(length(unique(result$orthogroups$orthogroup_id)), 1)
 })
 
-test_that("cluster_proteins uses conda_env to find tool", {
+test_that("cluster_proteins uses conda_prefix to find tool", {
   # Skip if the project env doesn't exist
-  env_path <- test_path("../../this_project_env")
+  # Path is relative to test file: paneffectR/tests/testthat/ -> paneffectR-dev/
+  env_path <- test_path("../../../this_project_env")
   skip_if_not(dir.exists(env_path), "Project conda env not found")
 
   ps1 <- new_protein_set("asm1", tibble::tibble(
@@ -552,13 +553,13 @@ test_that("cluster_proteins uses conda_env to find tool", {
   ))
   pc <- new_protein_collection(list(ps1, ps2))
 
-  # Use conda_env instead of tool_path
+  # Use conda_prefix to specify the environment path
   result <- cluster_proteins(
     pc,
     method = "diamond_rbh",
     min_identity = 90,
     min_coverage = 80,
-    conda_env = env_path
+    conda_prefix = env_path
   )
 
   expect_s3_class(result, "orthogroup_result")

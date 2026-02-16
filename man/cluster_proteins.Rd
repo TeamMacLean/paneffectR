@@ -13,7 +13,7 @@ cluster_proteins(
   evalue = 1e-05,
   threads = NULL,
   tool_path = NULL,
-  conda_env = NULL,
+  conda_prefix = NULL,
   keep_temp = FALSE
 )
 }
@@ -34,7 +34,8 @@ cluster_proteins(
 
 \item{tool_path}{Optional explicit path to the clustering tool binary}
 
-\item{conda_env}{Optional path to conda/mamba environment containing the tool}
+\item{conda_prefix}{Optional direct path to a conda/mamba environment containing
+the tool (e.g., "./this_project_env"). Tool is expected at \verb{<prefix>/bin/<tool>}.}
 
 \item{keep_temp}{Keep temporary files for debugging (default FALSE)}
 }
@@ -67,10 +68,10 @@ result <- cluster_proteins(
   min_coverage = 80
 )
 
-# Use a conda environment
+# Use a project-local conda environment
 result <- cluster_proteins(
   proteins,
-  conda_env = "./this_project_env"
+  conda_prefix = "./this_project_env"
 )
 }
 }

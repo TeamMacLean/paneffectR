@@ -4,14 +4,23 @@
 \alias{check_tool_installed}
 \title{Check if an external tool is installed}
 \usage{
-check_tool_installed(tool, tool_path = NULL, conda_env = NULL)
+check_tool_installed(
+  tool,
+  tool_path = NULL,
+  conda_prefix = NULL,
+  conda_env = NULL
+)
 }
 \arguments{
 \item{tool}{Character. Name of the tool (e.g., "diamond", "mmseqs").}
 
-\item{tool_path}{Character. Optional explicit path to the tool.}
+\item{tool_path}{Character. Optional explicit path to the tool binary.}
 
-\item{conda_env}{Character. Optional conda environment name.}
+\item{conda_prefix}{Character. Optional direct path to a conda/mamba environment
+(e.g., "./this_project_env"). The tool is expected at \verb{<prefix>/bin/<tool>}.}
+
+\item{conda_env}{Character. Optional conda environment name (looked up in
+standard conda envs directory).}
 }
 \value{
 Logical. TRUE if tool is found, FALSE otherwise.
@@ -23,6 +32,9 @@ Convenience wrapper around find_tool() that returns TRUE/FALSE.
 \dontrun{
 if (check_tool_installed("diamond")) {
   # use diamond
+}
+if (check_tool_installed("diamond", conda_prefix = "./this_project_env")) {
+  # use diamond from prefix env
 }
 }
 }

@@ -353,17 +353,11 @@ run_diamond_rbh <- function(proteins,
                             tool_path = NULL,
                             keep_temp = FALSE) {
   # Find DIAMOND binary
-  diamond_path <- if (!is.null(tool_path)) {
-    tool_path
-  } else if (file.exists("./this_project_env/bin/diamond")) {
-    "./this_project_env/bin/diamond"
-  } else {
-    Sys.which("diamond")
-  }
-
-  if (!nzchar(diamond_path) || !file.exists(diamond_path)) {
-    cli::cli_abort("DIAMOND not found. Install with: mamba install -c bioconda diamond")
-  }
+  diamond_path <- find_tool(
+    "diamond",
+    tool_path = tool_path,
+    error = TRUE
+  )
 
   # Set threads if not specified
   if (is.null(threads)) {
@@ -522,7 +516,8 @@ run_diamond_rbh <- function(proteins,
 #' @param evalue E-value threshold (default 1e-5)
 #' @param threads Number of CPU threads (default: auto-detect)
 #' @param tool_path Optional explicit path to the clustering tool binary
-#' @param conda_env Optional path to conda/mamba environment containing the tool
+#' @param conda_prefix Optional direct path to a conda/mamba environment containing
+#'   the tool (e.g., "./this_project_env"). Tool is expected at `<prefix>/bin/<tool>`.
 #' @param keep_temp Keep temporary files for debugging (default FALSE)
 #'
 #' @return An orthogroup_result object containing:
@@ -549,10 +544,10 @@ run_diamond_rbh <- function(proteins,
 #'   min_coverage = 80
 #' )
 #'
-#' # Use a conda environment
+#' # Use a project-local conda environment
 #' result <- cluster_proteins(
 #'   proteins,
-#'   conda_env = "./this_project_env"
+#'   conda_prefix = "./this_project_env"
 #' )
 #' }
 cluster_proteins <- function(proteins,
@@ -563,10 +558,10 @@ cluster_proteins <- function(proteins,
                              evalue = 1e-5,
                              threads = NULL,
                              tool_path = NULL,
-                             conda_env = NULL,
+                             conda_prefix = NULL,
                              keep_temp = FALSE) {
   # Validate proteins argument
- if (!inherits(proteins, "protein_collection")) {
+  if (!inherits(proteins, "protein_collection")) {
     cli::cli_abort("{.arg proteins} must be a {.cls protein_collection} object")
   }
 
@@ -586,9 +581,9 @@ cluster_proteins <- function(proteins,
     )
   }
 
-  # Build tool_path from conda_env if provided
-  if (!is.null(conda_env) && is.null(tool_path)) {
-    tool_path <- file.path(conda_env, "bin", "diamond")
+  # Build tool_path from conda_prefix if provided
+  if (!is.null(conda_prefix) && is.null(tool_path)) {
+    tool_path <- file.path(conda_prefix, "bin", "diamond")
   }
 
   # Dispatch to appropriate method

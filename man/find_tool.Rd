@@ -4,14 +4,24 @@
 \alias{find_tool}
 \title{Find an external tool}
 \usage{
-find_tool(tool, tool_path = NULL, conda_env = NULL, error = TRUE)
+find_tool(
+  tool,
+  tool_path = NULL,
+  conda_prefix = NULL,
+  conda_env = NULL,
+  error = TRUE
+)
 }
 \arguments{
 \item{tool}{Character. Name of the tool (e.g., "diamond", "mmseqs").}
 
-\item{tool_path}{Character. Optional explicit path to the tool.}
+\item{tool_path}{Character. Optional explicit path to the tool binary.}
 
-\item{conda_env}{Character. Optional conda environment name.}
+\item{conda_prefix}{Character. Optional direct path to a conda/mamba environment
+(e.g., "./this_project_env"). The tool is expected at \verb{<prefix>/bin/<tool>}.}
+
+\item{conda_env}{Character. Optional conda environment name (looked up in
+standard conda envs directory).}
 
 \item{error}{Logical. Whether to error if tool not found (default: TRUE).}
 }
@@ -22,13 +32,15 @@ Character path to the tool, or NULL if not found and error = FALSE.
 Locates an external bioinformatics tool using a hybrid resolution strategy:
 \enumerate{
 \item Explicit path if provided
-\item Conda environment if specified
+\item Conda prefix (direct path to environment) if specified
+\item Conda environment name if specified
 \item System PATH as fallback
 }
 }
 \examples{
 \dontrun{
 find_tool("diamond")
+find_tool("diamond", conda_prefix = "./this_project_env")
 find_tool("diamond", conda_env = "bioinf")
 find_tool("diamond", tool_path = "/opt/diamond/diamond")
 }

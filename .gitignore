@@ -17,3 +17,8 @@ Meta/
 
 # Package builds
 *.tar.gz
+/doc/
+/Meta/
+
+# Test artifacts
+Rplots.pdf

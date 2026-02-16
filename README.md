@@ -1,8 +1,8 @@
 # paneffectR <img src="man/figures/logo.png" align="right" height="139" alt="paneffectR logo" />
 
 <!-- badges: start -->
-[![R-CMD-check](https://github.com/USER/paneffectR/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/USER/paneffectR/actions/workflows/R-CMD-check.yaml)
-[![Codecov test coverage](https://codecov.io/gh/USER/paneffectR/branch/main/graph/badge.svg)](https://app.codecov.io/gh/USER/paneffectR?branch=main)
+[![R-CMD-check](https://github.com/TeamMacLean/paneffectR/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/TeamMacLean/paneffectR/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/TeamMacLean/paneffectR/branch/main/graph/badge.svg)](https://app.codecov.io/gh/TeamMacLean/paneffectR?branch=main)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 <!-- badges: end -->
@@ -37,7 +37,7 @@ Then install paneffectR from GitHub:
 
 ```r
 # install.packages("devtools")
-devtools::install_github("USER/paneffectR")
+devtools::install_github("TeamMacLean/paneffectR")
 ```
 
 ### External Dependencies
@@ -115,17 +115,17 @@ plot_dendro(pa, distance_method = "jaccard")
 
 ## Documentation
 
-- **[Getting Started](https://USER.github.io/paneffectR/articles/getting-started.html)** - Core workflow tutorial
-- **[Effector Analysis](https://USER.github.io/paneffectR/articles/effector-analysis.html)** - Working with omnieff output
-- **[Pan-Genome Analysis](https://USER.github.io/paneffectR/articles/pan-genome.html)** - General protein comparisons
-- **[Algorithm Deep Dive](https://USER.github.io/paneffectR/articles/algorithms.html)** - Technical details for bioinformaticians
-- **[Function Reference](https://USER.github.io/paneffectR/reference/index.html)** - Complete API documentation
+- **[Getting Started](https://TeamMacLean.github.io/paneffectR/articles/getting-started.html)** - Core workflow tutorial
+- **[Effector Analysis](https://TeamMacLean.github.io/paneffectR/articles/effector-analysis.html)** - Working with omnieff output
+- **[Pan-Genome Analysis](https://TeamMacLean.github.io/paneffectR/articles/pan-genome.html)** - General protein comparisons
+- **[Algorithm Deep Dive](https://TeamMacLean.github.io/paneffectR/articles/algorithms.html)** - Technical details for bioinformaticians
+- **[Function Reference](https://TeamMacLean.github.io/paneffectR/reference/index.html)** - Complete API documentation
 
 ## Citation
 
 If you use paneffectR in your research, please cite:
 
-> MacLean, D. (2026). paneffectR: Comparative Genomics of Effector Proteins. R package version 0.1.0. https://github.com/USER/paneffectR
+> MacLean, D. (2026). paneffectR: Comparative Genomics of Effector Proteins. R package version 0.1.0. https://github.com/TeamMacLean/paneffectR
 
 ## License
 

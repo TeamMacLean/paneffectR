@@ -8,12 +8,16 @@ NULL
 #'
 #' Locates an external bioinformatics tool using a hybrid resolution strategy:
 #' 1. Explicit path if provided
-#' 2. Conda environment if specified
-#' 3. System PATH as fallback
+#' 2. Conda prefix (direct path to environment) if specified
+#' 3. Conda environment name if specified
+#' 4. System PATH as fallback
 #'
 #' @param tool Character. Name of the tool (e.g., "diamond", "mmseqs").
-#' @param tool_path Character. Optional explicit path to the tool.
-#' @param conda_env Character. Optional conda environment name.
+#' @param tool_path Character. Optional explicit path to the tool binary.
+#' @param conda_prefix Character. Optional direct path to a conda/mamba environment
+#'   (e.g., "./this_project_env"). The tool is expected at `<prefix>/bin/<tool>`.
+#' @param conda_env Character. Optional conda environment name (looked up in
+#'   standard conda envs directory).
 #' @param error Logical. Whether to error if tool not found (default: TRUE).
 #'
 #' @return Character path to the tool, or NULL if not found and error = FALSE.
@@ -22,11 +26,13 @@ NULL
 #' @examples
 #' \dontrun{
 #' find_tool("diamond")
+#' find_tool("diamond", conda_prefix = "./this_project_env")
 #' find_tool("diamond", conda_env = "bioinf")
 #' find_tool("diamond", tool_path = "/opt/diamond/diamond")
 #' }
 find_tool <- function(tool,
                       tool_path = NULL,
+                      conda_prefix = NULL,
                       conda_env = NULL,
                       error = TRUE) {
   # 1. Explicit path provided
@@ -40,7 +46,19 @@ find_tool <- function(tool,
     return(NULL)
   }
 
-  # 2. Conda environment specified
+  # 2. Conda prefix (direct path to environment)
+  if (!is.null(conda_prefix)) {
+    tool_in_prefix <- file.path(conda_prefix, "bin", tool)
+    if (file.exists(tool_in_prefix)) {
+      return(tool_in_prefix)
+    }
+    if (error) {
+      cli::cli_abort("Tool {.val {tool}} not found in conda prefix: {.path {conda_prefix}}")
+    }
+    return(NULL)
+  }
+
+  # 3. Conda environment by name
   if (!is.null(conda_env)) {
     conda_base <- find_conda_base()
     if (!is.null(conda_base)) {
@@ -55,7 +73,7 @@ find_tool <- function(tool,
     return(NULL)
   }
 
-  # 3. Fall back to PATH
+  # 4. Fall back to PATH
   path <- Sys.which(tool)
   if (nzchar(path)) {
     return(unname(path))
@@ -65,7 +83,7 @@ find_tool <- function(tool,
     cli::cli_abort(c(
       "Tool {.val {tool}} not found",
       "i" = "Install with: {.code mamba install -c bioconda {tool}}",
-      "i" = "Or specify path: {.arg tool_path} or {.arg conda_env}"
+      "i" = "Or specify path: {.arg tool_path}, {.arg conda_prefix}, or {.arg conda_env}"
     ))
   }
   NULL
@@ -85,11 +103,15 @@ find_tool <- function(tool,
 #' if (check_tool_installed("diamond")) {
 #'   # use diamond
 #' }
+#' if (check_tool_installed("diamond", conda_prefix = "./this_project_env")) {
+#'   # use diamond from prefix env
+#' }
 #' }
 check_tool_installed <- function(tool,
                                  tool_path = NULL,
+                                 conda_prefix = NULL,
                                  conda_env = NULL) {
-  !is.null(find_tool(tool, tool_path, conda_env, error = FALSE))
+  !is.null(find_tool(tool, tool_path, conda_prefix, conda_env, error = FALSE))
 }
 
 #' Find conda base directory

@@ -13,9 +13,9 @@ Clusters proteins from multiple genome assemblies into ortholog groups, builds p
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/USER/paneffectR}
-  \item \url{https://USER.github.io/paneffectR/}
-  \item Report bugs at \url{https://github.com/USER/paneffectR/issues}
+  \item \url{https://github.com/TeamMacLean/paneffectR}
+  \item \url{https://TeamMacLean.github.io/paneffectR/}
+  \item Report bugs at \url{https://github.com/TeamMacLean/paneffectR/issues}
 }
 
 }

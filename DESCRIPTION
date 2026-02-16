@@ -11,19 +11,18 @@ Description: Clusters proteins from multiple genome assemblies into ortholog
     visualizations. Designed for effector protein analysis from the omnieff
     pipeline but works with any protein sets.
 License: MIT + file LICENSE
-URL: https://github.com/USER/paneffectR, https://USER.github.io/paneffectR/
-BugReports: https://github.com/USER/paneffectR/issues
+URL: https://github.com/TeamMacLean/paneffectR, https://TeamMacLean.github.io/paneffectR/
+BugReports: https://github.com/TeamMacLean/paneffectR/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports:
     tibble,
     dplyr,
-    tidyr,
-    purrr,
     readr,
     ggplot2,
     ComplexHeatmap,
+    circlize,
     UpSetR,
     Biostrings,
     processx,

@@ -123,7 +123,7 @@ dendro_to_data <- function(dend) {
 
   # Helper function to extract segments recursively
   extract_segments <- function(d, x_center = 0) {
-    if (is.leaf(d)) {
+    if (stats::is.leaf(d)) {
       # Leaf node - collect label
       labels_data[[length(labels_data) + 1]] <<- data.frame(
         x = x_center,
@@ -154,8 +154,8 @@ dendro_to_data <- function(dend) {
     right_x_actual <- extract_segments(right, right_x)
 
     # Get heights of children
-    left_height <- if (is.leaf(left)) 0 else attr(left, "height")
-    right_height <- if (is.leaf(right)) 0 else attr(right, "height")
+    left_height <- if (stats::is.leaf(left)) 0 else attr(left, "height")
+    right_height <- if (stats::is.leaf(right)) 0 else attr(right, "height")
 
     # Add segments: vertical from children to parent height, horizontal at parent
     # Left vertical
