@@ -16,6 +16,7 @@
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/build_score_lookup.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/calculate_assembly_distance.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/calculate_distance.html</loc></url>
+<url><loc>https://TeamMacLean.github.io/paneffectR/reference/categorize_orthogroups.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/check_tool_installed.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/cluster_proteins.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/compute_rbh.html</loc></url>
@@ -46,10 +47,13 @@
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/parse_diamond_hits.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/plot-dendro.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/plot-heatmap.html</loc></url>
+<url><loc>https://TeamMacLean.github.io/paneffectR/reference/plot-pan.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/plot-scores.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/plot-upset.html</loc></url>
+<url><loc>https://TeamMacLean.github.io/paneffectR/reference/plot_assembly_composition.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/plot_dendro.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/plot_heatmap.html</loc></url>
+<url><loc>https://TeamMacLean.github.io/paneffectR/reference/plot_pan_structure.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/plot_scores.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/plot_upset.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/run_diamond_rbh.html</loc></url>

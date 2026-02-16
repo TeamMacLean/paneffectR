@@ -911,7 +911,7 @@ pa_with <- build_pa_matrix(clusters, exclude_singletons = FALSE)
 pa_without <- build_pa_matrix(clusters, exclude_singletons = TRUE)
 
 cat("With singletons:", nrow(pa_with$matrix), "orthogroups\n")
-#> With singletons: 50 orthogroups
+#> With singletons: 62 orthogroups
 cat("Without singletons:", nrow(pa_without$matrix), "orthogroups\n")
 #> Without singletons: 50 orthogroups
 ```

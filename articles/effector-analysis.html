@@ -80,311 +80,321 @@
 </h2>
 <p>This vignette demonstrates how to use paneffectR with output from the
 <a href="https://github.com/TeamMacLean/omnieff" class="external-link">omnieff</a> effector
-prediction pipeline. The key advantage is the ability to <strong>filter
-by effector prediction scores</strong>, focusing your analysis on
-high-confidence effector candidates.</p>
+prediction pipeline. A key focus is <strong>identifying singleton
+effectors</strong> - proteins unique to individual isolates that may
+drive host specificity or represent recently evolved virulence
+factors.</p>
 </div>
 <div class="section level2">
-<h2 id="the-omnieff-pipeline">The omnieff Pipeline<a class="anchor" aria-label="anchor" href="#the-omnieff-pipeline"></a>
-</h2>
-<p>omnieff runs multiple effector prediction tools and combines their
-results:</p>
-<ul>
-<li>
-<strong>Signal peptide predictors</strong>: SignalP 3/4/5/6,
-Phobius</li>
-<li>
-<strong>Effector predictors</strong>: EffectorP 1/2/3,
-DeepRedEff</li>
-<li>
-<strong>Localization</strong>: ApoplastP, Localizer</li>
-<li>
-<strong>Domain annotations</strong>: Pfam</li>
-</ul>
-<p>The output includes:</p>
-<ol style="list-style-type: decimal">
-<li>
-<strong>FASTA files</strong> (<code>*_reformatted.faa</code>):
-Protein sequences with standardized names</li>
-<li>
-<strong>Score files</strong> (<code>*_scored.csv</code>): All
-prediction scores plus a combined <code>custom_score</code>
-</li>
-<li>
-<strong>Name mapping</strong> (<code>*_name_mapping.csv</code>):
-Links new names to original contig names</li>
-</ol>
-</div>
-<div class="section level2">
-<h2 id="setup">Setup<a class="anchor" aria-label="anchor" href="#setup"></a>
+<h2 id="setup-and-data-loading">Setup and Data Loading<a class="anchor" aria-label="anchor" href="#setup-and-data-loading"></a>
 </h2>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/TeamMacLean/paneffectR" class="external-link">paneffectR</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://dplyr.tidyverse.org" class="external-link">dplyr</a></span><span class="op">)</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Attaching package: 'dplyr'</span></span>
-<span><span class="co">#&gt; The following objects are masked from 'package:stats':</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;     filter, lag</span></span>
-<span><span class="co">#&gt; The following objects are masked from 'package:base':</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;     intersect, setdiff, setequal, union</span></span></code></pre></div>
-</div>
-<div class="section level2">
-<h2 id="loading-omnieff-output">Loading omnieff Output<a class="anchor" aria-label="anchor" href="#loading-omnieff-output"></a>
-</h2>
-<p>Use <code><a href="../reference/load_proteins.html">load_proteins()</a></code> with both FASTA and score
-directories:</p>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span></code></pre></div>
+<p>For this vignette, we use pre-computed clustering results with
+synthetic data that simulates typical effector analysis:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Get path to test data (simulates omnieff output structure)</span></span>
-<span><span class="va">testdata_dir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"testdata"</span>, package <span class="op">=</span> <span class="st">"paneffectR"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">visual_dir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"testdata"</span>, <span class="st">"visual"</span>, package <span class="op">=</span> <span class="st">"paneffectR"</span><span class="op">)</span></span>
+<span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">visual_dir</span>, <span class="st">"clusters_visual.rds"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">proteins</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">visual_dir</span>, <span class="st">"proteins_visual.rds"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Load with scores</span></span>
-<span><span class="va">proteins</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/load_proteins.html">load_proteins</a></span><span class="op">(</span></span>
-<span>  fasta_dir <span class="op">=</span> <span class="va">testdata_dir</span>,</span>
-<span>  score_dir <span class="op">=</span> <span class="va">testdata_dir</span>,</span>
-<span>  pattern <span class="op">=</span> <span class="st">"*.faa"</span></span>
-<span><span class="op">)</span></span>
+<span><span class="va">clusters</span></span>
+<span><span class="co">#&gt; -- orthogroup_result (synthetic_visual) --</span></span>
+<span><span class="co">#&gt; 50 orthogroups</span></span>
+<span><span class="co">#&gt; 12 singletons</span></span>
 <span><span class="va">proteins</span></span>
 <span><span class="co">#&gt; -- protein_collection --</span></span>
-<span><span class="co">#&gt; 3 assemblies, 300 total proteins</span></span>
+<span><span class="co">#&gt; 6 assemblies, 172 total proteins</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 3</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 3</span></span></span>
 <span><span class="co">#&gt;   assembly_name n_proteins has_scores</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>              <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;lgl&gt;</span>     </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> assembly1            100 TRUE      </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> assembly2            100 TRUE      </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> assembly3            100 TRUE</span></span></code></pre></div>
-<p>Notice that <code>has_scores</code> is TRUE for all assemblies.</p>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> asm_A                 25 TRUE      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> asm_B                 31 TRUE      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> asm_C                 27 TRUE      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> asm_D                 31 TRUE      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> asm_E                 31 TRUE      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> asm_F                 27 TRUE</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="understanding-score-columns">Understanding Score Columns<a class="anchor" aria-label="anchor" href="#understanding-score-columns"></a>
+<h2 id="finding-unique-effectors-singletons">Finding Unique Effectors: Singletons<a class="anchor" aria-label="anchor" href="#finding-unique-effectors-singletons"></a>
 </h2>
-<p>The score data contains many columns from different prediction
-tools:</p>
+<p>When comparing effector repertoires across pathogen isolates,
+<strong>singletons are often the most biologically interesting
+proteins</strong>. These are proteins that couldn’t be clustered with
+any protein from other assemblies - they appear to be unique to a single
+isolate.</p>
+<p>Singletons are important because they may represent:</p>
+<ul>
+<li>
+<strong>Recently evolved effectors</strong> - Novel proteins that
+emerged in a specific lineage</li>
+<li>
+<strong>Candidate avirulence genes</strong> - Effectors recognized
+by host resistance proteins, driving isolate-specific
+incompatibility</li>
+<li>
+<strong>Host adaptation factors</strong> - Proteins that enable
+colonization of specific host genotypes</li>
+<li>
+<strong>Candidates for functional characterization</strong> -
+High-priority targets for understanding what makes isolates
+different</li>
+</ul>
+<div class="section level3">
+<h3 id="extracting-singletons">Extracting Singletons<a class="anchor" aria-label="anchor" href="#extracting-singletons"></a>
+</h3>
+<p>paneffectR provides dedicated functions for working with
+singletons:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Get one assembly to explore</span></span>
-<span><span class="va">ps</span> <span class="op">&lt;-</span> <span class="va">proteins</span><span class="op">$</span><span class="va">assemblies</span><span class="op">[[</span><span class="st">"assembly1"</span><span class="op">]</span><span class="op">]</span></span>
+<code class="sourceCode R"><span><span class="co"># Get all singletons</span></span>
+<span><span class="va">singletons</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_singletons.html">get_singletons</a></span><span class="op">(</span><span class="va">clusters</span><span class="op">)</span></span>
+<span><span class="va">singletons</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 12 × 2</span></span></span>
+<span><span class="co">#&gt;    protein_id         assembly</span></span>
+<span><span class="co">#&gt;    <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>              <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 1</span> asm_A_singleton_01 asm_A   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 2</span> asm_B_singleton_02 asm_B   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 3</span> asm_C_singleton_03 asm_C   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 4</span> asm_D_singleton_04 asm_D   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 5</span> asm_E_singleton_05 asm_E   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 6</span> asm_F_singleton_06 asm_F   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 7</span> asm_A_singleton_07 asm_A   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 8</span> asm_B_singleton_08 asm_B   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 9</span> asm_C_singleton_09 asm_C   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">10</span> asm_D_singleton_10 asm_D   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">11</span> asm_E_singleton_11 asm_E   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">12</span> asm_F_singleton_12 asm_F</span></span>
 <span></span>
-<span><span class="co"># All available columns</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">ps</span><span class="op">$</span><span class="va">proteins</span><span class="op">)</span></span>
-<span><span class="co">#&gt;  [1] "protein_id"                       "sequence"                        </span></span>
-<span><span class="co">#&gt;  [3] "assembly"                         "signalp3_nn"                     </span></span>
-<span><span class="co">#&gt;  [5] "signalp3_nn_d"                    "signalp3_hmm"                    </span></span>
-<span><span class="co">#&gt;  [7] "signalp3_hmm_s"                   "signalp4"                        </span></span>
-<span><span class="co">#&gt;  [9] "signalp4_d"                       "signalp5"                        </span></span>
-<span><span class="co">#&gt; [11] "signalp5_d"                       "signalp5_prediction"             </span></span>
-<span><span class="co">#&gt; [13] "phobius_tm_count"                 "phobius_has_sp"                  </span></span>
-<span><span class="co">#&gt; [15] "phobius_prediction"               "effectorp1"                      </span></span>
-<span><span class="co">#&gt; [17] "effectorp1_prob"                  "effectorp2"                      </span></span>
-<span><span class="co">#&gt; [19] "effectorp2_prob"                  "effectorp3_cytoplasmic_fungal"   </span></span>
-<span><span class="co">#&gt; [21] "effectorp3_apoplastic_fungal"     "effectorp3_noneffector_fungal"   </span></span>
-<span><span class="co">#&gt; [23] "effectorp3_prediction_fungal"     "effectorp3_cytoplasmic_nonfungal"</span></span>
-<span><span class="co">#&gt; [25] "effectorp3_apoplastic_nonfungal"  "effectorp3_noneffector_nonfungal"</span></span>
-<span><span class="co">#&gt; [27] "effectorp3_prediction_nonfungal"  "deepredeff_fungi"                </span></span>
-<span><span class="co">#&gt; [29] "deepredeff_oomycete"              "apoplastp"                       </span></span>
-<span><span class="co">#&gt; [31] "apoplastp_prediction"             "tmhmm_tm_count"                  </span></span>
-<span><span class="co">#&gt; [33] "tmhmm_prediction"                 "localizer"                       </span></span>
-<span><span class="co">#&gt; [35] "pfam_ids"                         "pfam_names"                      </span></span>
-<span><span class="co">#&gt; [37] "pfam_best_evalues"                "has_selected_pfam_match"         </span></span>
-<span><span class="co">#&gt; [39] "signalp6"                         "signalp6_d"                      </span></span>
-<span><span class="co">#&gt; [41] "signalp6_prediction"              "custom_score"                    </span></span>
-<span><span class="co">#&gt; [43] "score_rank"</span></span></code></pre></div>
-<div class="section level3">
-<h3 id="key-score-columns">Key Score Columns<a class="anchor" aria-label="anchor" href="#key-score-columns"></a>
-</h3>
-<table class="table">
-<colgroup>
-<col width="38%">
-<col width="61%">
-</colgroup>
-<thead><tr class="header">
-<th>Column</th>
-<th>Description</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td><code>custom_score</code></td>
-<td>Combined effector score (higher = more likely effector)</td>
-</tr>
-<tr class="even">
-<td><code>score_rank</code></td>
-<td>Rank by custom_score (1 = highest)</td>
-</tr>
-<tr class="odd">
-<td><code>effectorp1_prob</code></td>
-<td>EffectorP v1 probability</td>
-</tr>
-<tr class="even">
-<td><code>effectorp2_prob</code></td>
-<td>EffectorP v2 probability</td>
-</tr>
-<tr class="odd">
-<td><code>effectorp3_prediction_fungal</code></td>
-<td>EffectorP v3 category (fungal mode)</td>
-</tr>
-<tr class="even">
-<td><code>deepredeff_fungi</code></td>
-<td>DeepRedEff fungal score</td>
-</tr>
-<tr class="odd">
-<td><code>signalp5_d</code></td>
-<td>SignalP5 D-score</td>
-</tr>
-</tbody>
-</table>
+<span><span class="co"># Count singletons</span></span>
+<span><span class="fu"><a href="../reference/n_singletons.html">n_singletons</a></span><span class="op">(</span><span class="va">clusters</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 12</span></span>
+<span></span>
+<span><span class="co"># Summary by assembly</span></span>
+<span><span class="fu"><a href="../reference/singletons_by_assembly.html">singletons_by_assembly</a></span><span class="op">(</span><span class="va">clusters</span>, <span class="va">proteins</span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 4</span></span></span>
+<span><span class="co">#&gt;   assembly n_singletons n_total pct_singleton</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>         <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> asm_A               2      25          8   </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> asm_B               2      31          6.45</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> asm_C               2      27          7.41</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> asm_D               2      31          6.45</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> asm_E               2      31          6.45</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> asm_F               2      27          7.41</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="exploring-score-distributions">Exploring Score Distributions<a class="anchor" aria-label="anchor" href="#exploring-score-distributions"></a>
+<h3 id="singleton-scores-are-they-real-effectors">Singleton Scores: Are They Real Effectors?<a class="anchor" aria-label="anchor" href="#singleton-scores-are-they-real-effectors"></a>
 </h3>
+<p>A key question is whether singletons are genuine effector candidates
+or just annotation artifacts. We can examine their prediction scores to
+assess confidence:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Top-scoring proteins in assembly1</span></span>
-<span><span class="va">ps</span><span class="op">$</span><span class="va">proteins</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange</a></span><span class="op">(</span><span class="va">score_rank</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">protein_id</span>, <span class="va">custom_score</span>, <span class="va">score_rank</span>,</span>
-<span>         <span class="va">effectorp2_prob</span>, <span class="va">signalp5_d</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 10 × 5</span></span></span>
-<span><span class="co">#&gt;    protein_id       custom_score score_rank effectorp2_prob signalp5_d</span></span>
-<span><span class="co">#&gt;    <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 1</span> assembly1_000267         5.92          1           0.764    0.062<span style="text-decoration: underline;">3</span> </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 2</span> assembly1_003502         5.14          2           0.613    0.352  </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 3</span> assembly1_001347         5.06          3           0.996    0.181  </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 4</span> assembly1_005840         5.06          4           0.995    0.446  </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 5</span> assembly1_006291         5.00          5           0.999    0.009<span style="text-decoration: underline;">65</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 6</span> assembly1_004421         4.99          6           0.982    0.075<span style="text-decoration: underline;">9</span> </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 7</span> assembly1_001504         4.99          7           0.979    0.829  </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 8</span> assembly1_002717         4.95          8           0.974    0.039<span style="text-decoration: underline;">8</span> </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 9</span> assembly1_002883         4.93          9           0.969    0.029<span style="text-decoration: underline;">3</span> </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">10</span> assembly1_004234         4.91         10           0.998    0.182</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="co"># Get all proteins with scores</span></span>
+<span><span class="va">all_proteins</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">proteins</span><span class="op">$</span><span class="va">assemblies</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">asm</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">proteins</span><span class="op">$</span><span class="va">assemblies</span><span class="op">[[</span><span class="va">asm</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">proteins</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>    <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>assembly <span class="op">=</span> <span class="va">asm</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Join singletons with their scores</span></span>
+<span><span class="va">singleton_scores</span> <span class="op">&lt;-</span> <span class="va">singletons</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span></span>
+<span>    <span class="va">all_proteins</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">protein_id</span>, <span class="va">custom_score</span><span class="op">)</span>,</span>
+<span>    by <span class="op">=</span> <span class="st">"protein_id"</span></span>
+<span>  <span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/desc.html" class="external-link">desc</a></span><span class="op">(</span><span class="va">custom_score</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">singleton_scores</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 12 × 3</span></span></span>
+<span><span class="co">#&gt;    protein_id         assembly custom_score</span></span>
+<span><span class="co">#&gt;    <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>              <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 1</span> asm_C_singleton_03 asm_C            8.89</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 2</span> asm_B_singleton_02 asm_B            8.76</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 3</span> asm_A_singleton_01 asm_A            7.18</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 4</span> asm_D_singleton_04 asm_D            6.70</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 5</span> asm_F_singleton_06 asm_F            5.71</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 6</span> asm_E_singleton_05 asm_E            5.17</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 7</span> asm_B_singleton_08 asm_B            4.89</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 8</span> asm_A_singleton_07 asm_A            4.81</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 9</span> asm_C_singleton_09 asm_C            2.87</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">10</span> asm_D_singleton_10 asm_D            2.70</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">11</span> asm_F_singleton_12 asm_F            2.64</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">12</span> asm_E_singleton_11 asm_E            2.16</span></span></code></pre></div>
+<p>Several singletons have high effector prediction scores (&gt;6),
+suggesting they are genuine effector candidates worthy of follow-up, not
+just noise in the data.</p>
 </div>
-</div>
-<div class="section level2">
-<h2 id="visualizing-score-distributions">Visualizing Score Distributions<a class="anchor" aria-label="anchor" href="#visualizing-score-distributions"></a>
-</h2>
-<p>Before filtering, understand your score distributions:</p>
+<div class="section level3">
+<h3 id="visualizing-singleton-score-distribution">Visualizing Singleton Score Distribution<a class="anchor" aria-label="anchor" href="#visualizing-singleton-score-distribution"></a>
+</h3>
+<p>How do singleton scores compare to proteins in orthogroups?</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Overall distribution</span></span>
-<span><span class="fu"><a href="../reference/plot_scores.html">plot_scores</a></span><span class="op">(</span><span class="va">proteins</span><span class="op">)</span></span></code></pre></div>
-<p><img src="effector-analysis_files/figure-html/score-plots-1.png" class="r-plt" alt="" width="1050"></p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span><span class="co"># By assembly</span></span>
-<span><span class="fu"><a href="../reference/plot_scores.html">plot_scores</a></span><span class="op">(</span><span class="va">proteins</span>, by_assembly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
-<p><img src="effector-analysis_files/figure-html/score-plots-2.png" class="r-plt" alt="" width="1050"></p>
+<code class="sourceCode R"><span><span class="co"># Add clustering status to all proteins</span></span>
+<span><span class="va">clustered_proteins</span> <span class="op">&lt;-</span> <span class="va">clusters</span><span class="op">$</span><span class="va">orthogroups</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">protein_id</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>status <span class="op">=</span> <span class="st">"In orthogroup"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">singleton_status</span> <span class="op">&lt;-</span> <span class="va">singletons</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">protein_id</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>status <span class="op">=</span> <span class="st">"Singleton"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">protein_status</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">bind_rows</a></span><span class="op">(</span><span class="va">clustered_proteins</span>, <span class="va">singleton_status</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Join with scores</span></span>
+<span><span class="va">score_comparison</span> <span class="op">&lt;-</span> <span class="va">all_proteins</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">inner_join</a></span><span class="op">(</span><span class="va">protein_status</span>, by <span class="op">=</span> <span class="st">"protein_id"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Plot comparison</span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">score_comparison</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">custom_score</span>, fill <span class="op">=</span> <span class="va">status</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_density.html" class="external-link">geom_density</a></span><span class="op">(</span>alpha <span class="op">=</span> <span class="fl">0.6</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_manual.html" class="external-link">scale_fill_manual</a></span><span class="op">(</span>values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"In orthogroup"</span> <span class="op">=</span> <span class="st">"steelblue"</span>, <span class="st">"Singleton"</span> <span class="op">=</span> <span class="st">"coral"</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span></span>
+<span>    title <span class="op">=</span> <span class="st">"Effector Score Distribution: Singletons vs Orthogroup Members"</span>,</span>
+<span>    x <span class="op">=</span> <span class="st">"Effector Prediction Score"</span>,</span>
+<span>    y <span class="op">=</span> <span class="st">"Density"</span>,</span>
+<span>    fill <span class="op">=</span> <span class="st">"Clustering Status"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span>legend.position <span class="op">=</span> <span class="st">"bottom"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="effector-analysis_files/figure-html/singleton-score-distribution-1.png" class="r-plt" alt="" width="1050"></p>
+<p>This shows that singletons span the full range of effector scores -
+some are high-confidence effector candidates, while others may be
+lower-priority.</p>
+</div>
 <div class="section level3">
-<h3 id="choosing-a-threshold">Choosing a Threshold<a class="anchor" aria-label="anchor" href="#choosing-a-threshold"></a>
+<h3 id="exporting-singletons-for-follow-up">Exporting Singletons for Follow-up<a class="anchor" aria-label="anchor" href="#exporting-singletons-for-follow-up"></a>
 </h3>
-<p>The <code>custom_score</code> combines multiple predictors. Higher
-scores indicate stronger effector evidence. Use a threshold to focus on
-high-confidence candidates:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Show threshold line at score = 5</span></span>
-<span><span class="fu"><a href="../reference/plot_scores.html">plot_scores</a></span><span class="op">(</span><span class="va">proteins</span>, threshold <span class="op">=</span> <span class="fl">5.0</span><span class="op">)</span></span></code></pre></div>
-<p><img src="effector-analysis_files/figure-html/score-threshold-viz-1.png" class="r-plt" alt="" width="1050"></p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span></span>
-<span><span class="co"># Histogram view</span></span>
-<span><span class="fu"><a href="../reference/plot_scores.html">plot_scores</a></span><span class="op">(</span><span class="va">proteins</span>, plot_type <span class="op">=</span> <span class="st">"histogram"</span>, threshold <span class="op">=</span> <span class="fl">5.0</span><span class="op">)</span></span></code></pre></div>
-<p><img src="effector-analysis_files/figure-html/score-threshold-viz-2.png" class="r-plt" alt="" width="1050"></p>
+<p>Export high-scoring singletons for experimental validation:</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># High-confidence singleton effectors</span></span>
+<span><span class="va">high_score_singletons</span> <span class="op">&lt;-</span> <span class="va">singleton_scores</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">custom_score</span> <span class="op">&gt;=</span> <span class="fl">5.0</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/write.table.html" class="external-link">write.csv</a></span><span class="op">(</span><span class="va">high_score_singletons</span>, <span class="st">"high_confidence_singletons.csv"</span>, row.names <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
-<h2 id="clustering-and-filtering">Clustering and Filtering<a class="anchor" aria-label="anchor" href="#clustering-and-filtering"></a>
+<h2 id="pan-effectorome-structure">Pan-Effectorome Structure<a class="anchor" aria-label="anchor" href="#pan-effectorome-structure"></a>
 </h2>
+<p>Beyond singletons, it’s useful to see the overall structure of the
+effector pan-genome. paneffectR provides functions to visualize how
+proteins are distributed across assemblies.</p>
 <div class="section level3">
-<h3 id="basic-clustering">Basic Clustering<a class="anchor" aria-label="anchor" href="#basic-clustering"></a>
+<h3 id="visualizing-pan-effectorome-structure">Visualizing Pan-Effectorome Structure<a class="anchor" aria-label="anchor" href="#visualizing-pan-effectorome-structure"></a>
 </h3>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Cluster all proteins (requires DIAMOND)</span></span>
-<span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span>, method <span class="op">=</span> <span class="st">"diamond_rbh"</span><span class="op">)</span></span></code></pre></div>
-<p>For this vignette, we’ll use pre-computed clusters:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">visual_dir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"testdata"</span>, <span class="st">"visual"</span>, package <span class="op">=</span> <span class="st">"paneffectR"</span><span class="op">)</span></span>
-<span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">visual_dir</span>, <span class="st">"clusters_visual.rds"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_pan_structure.html">plot_pan_structure</a></span><span class="op">(</span><span class="va">clusters</span><span class="op">)</span></span></code></pre></div>
+<p><img src="effector-analysis_files/figure-html/pan-effectorome-bar-1.png" class="r-plt" alt="" width="1050"></p>
+<p>This shows the composition of the pan-effectorome:</p>
+<ul>
+<li>
+<strong>Core</strong>: Present in all assemblies - likely essential
+for pathogenicity</li>
+<li>
+<strong>Accessory</strong>: Present in many but not all
+assemblies</li>
+<li>
+<strong>Rare</strong>: Present in few assemblies (default: ≤10% of
+assemblies)</li>
+<li>
+<strong>Unique</strong>: Orthogroups with members from only 1
+assembly</li>
+<li>
+<strong>Singleton</strong>: Proteins that couldn’t be clustered at
+all - truly unique</li>
+</ul>
+<p>The thresholds for Rare and Accessory categories are
+configurable:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Custom thresholds: Rare if in ≤20% of assemblies, Accessory if ≤50%</span></span>
+<span><span class="fu"><a href="../reference/plot_pan_structure.html">plot_pan_structure</a></span><span class="op">(</span><span class="va">clusters</span>, rare_threshold <span class="op">=</span> <span class="fl">0.20</span>, accessory_threshold <span class="op">=</span> <span class="fl">0.50</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="building-a-filtered-matrix">Building a Filtered Matrix<a class="anchor" aria-label="anchor" href="#building-a-filtered-matrix"></a>
+<h3 id="per-assembly-breakdown">Per-Assembly Breakdown<a class="anchor" aria-label="anchor" href="#per-assembly-breakdown"></a>
 </h3>
-<p>Filter to only high-confidence effectors when building the
-matrix:</p>
+<p>How does each assembly contribute to the pan-effectorome?</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_assembly_composition.html">plot_assembly_composition</a></span><span class="op">(</span><span class="va">clusters</span><span class="op">)</span></span></code></pre></div>
+<p><img src="effector-analysis_files/figure-html/per-assembly-breakdown-1.png" class="r-plt" alt="" width="1050"></p>
+<p>Use <code>position = "fill"</code> to show proportions instead of
+counts:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_assembly_composition.html">plot_assembly_composition</a></span><span class="op">(</span><span class="va">clusters</span>, position <span class="op">=</span> <span class="st">"fill"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="effector-analysis_files/figure-html/per-assembly-proportions-1.png" class="r-plt" alt="" width="1050"></p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="working-with-effector-scores">Working with Effector Scores<a class="anchor" aria-label="anchor" href="#working-with-effector-scores"></a>
+</h2>
+<div class="section level3">
+<h3 id="score-based-filtering">Score-Based Filtering<a class="anchor" aria-label="anchor" href="#score-based-filtering"></a>
+</h3>
+<p>When building matrices, you can filter to high-confidence
+effectors:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Load the proteins that match the clusters</span></span>
-<span><span class="va">proteins_visual</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">visual_dir</span>, <span class="st">"proteins_visual.rds"</span><span class="op">)</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="co"># Build unfiltered matrix first</span></span>
+<span><span class="va">pa</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_pa_matrix.html">build_pa_matrix</a></span><span class="op">(</span><span class="va">clusters</span>, type <span class="op">=</span> <span class="st">"binary"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Build matrix with score threshold</span></span>
-<span><span class="co"># Only orthogroups containing proteins with score &gt;= 3 are included</span></span>
+<span><span class="co"># Only orthogroups containing proteins with score &gt;= 5 are included</span></span>
 <span><span class="va">pa_filtered</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_pa_matrix.html">build_pa_matrix</a></span><span class="op">(</span></span>
 <span>  <span class="va">clusters</span>,</span>
 <span>  type <span class="op">=</span> <span class="st">"binary"</span>,</span>
-<span>  score_threshold <span class="op">=</span> <span class="fl">3.0</span>,</span>
-<span>  proteins <span class="op">=</span> <span class="va">proteins_visual</span></span>
+<span>  score_threshold <span class="op">=</span> <span class="fl">5.0</span>,</span>
+<span>  proteins <span class="op">=</span> <span class="va">proteins</span></span>
 <span><span class="op">)</span></span>
-<span><span class="va">pa_filtered</span></span>
-<span><span class="co">#&gt; -- pa_matrix (binary) --</span></span>
-<span><span class="co">#&gt; 36 orthogroups x 6 assemblies</span></span>
-<span><span class="co">#&gt; Sparsity: 34.3%</span></span>
-<span><span class="co">#&gt; Threshold: 3</span></span></code></pre></div>
-<p>Compare with unfiltered:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">pa_all</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_pa_matrix.html">build_pa_matrix</a></span><span class="op">(</span><span class="va">clusters</span>, type <span class="op">=</span> <span class="st">"binary"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"All orthogroups:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">pa_all</span><span class="op">$</span><span class="va">matrix</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; All orthogroups: 50</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"After score filter:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">pa_filtered</span><span class="op">$</span><span class="va">matrix</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; After score filter: 36</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"All orthogroups:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">pa</span><span class="op">$</span><span class="va">matrix</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; All orthogroups: 62</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"After score filter (&gt;=5):"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">pa_filtered</span><span class="op">$</span><span class="va">matrix</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; After score filter (&gt;=5): 31</span></span></code></pre></div>
 </div>
-</div>
-<div class="section level2">
-<h2 id="score-based-matrix">Score-Based Matrix<a class="anchor" aria-label="anchor" href="#score-based-matrix"></a>
-</h2>
-<p>Instead of binary presence/absence, you can create a matrix with
-actual scores:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Use maximum score per orthogroup per assembly</span></span>
-<span><span class="va">pa_score</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_pa_matrix.html">build_pa_matrix</a></span><span class="op">(</span></span>
+<div class="section level3">
+<h3 id="score-based-matrix">Score-Based Matrix<a class="anchor" aria-label="anchor" href="#score-based-matrix"></a>
+</h3>
+<p>Instead of binary presence/absence, create a matrix with actual
+scores:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">pa_score</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_pa_matrix.html">build_pa_matrix</a></span><span class="op">(</span></span>
 <span>  <span class="va">clusters</span>,</span>
 <span>  type <span class="op">=</span> <span class="st">"score"</span>,</span>
 <span>  score_column <span class="op">=</span> <span class="st">"custom_score"</span>,</span>
-<span>  proteins <span class="op">=</span> <span class="va">proteins_visual</span></span>
+<span>  proteins <span class="op">=</span> <span class="va">proteins</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># View scores (0 = absent, otherwise the score value)</span></span>
 <span><span class="va">pa_score</span><span class="op">$</span><span class="va">matrix</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span>, <span class="op">]</span></span>
 <span><span class="co">#&gt;              asm_A    asm_B    asm_C    asm_D    asm_E    asm_F</span></span>
-<span><span class="co">#&gt; OG_acc_01 6.329748       NA       NA       NA 5.634757 4.490995</span></span>
-<span><span class="co">#&gt; OG_acc_02 4.880568 4.297836       NA 6.800552 6.062126       NA</span></span>
-<span><span class="co">#&gt; OG_acc_03 5.043444 4.251004 6.456519 5.171333 6.114216       NA</span></span>
-<span><span class="co">#&gt; OG_acc_04 5.947353 6.840645 6.917769 4.371568       NA       NA</span></span>
-<span><span class="co">#&gt; OG_acc_05 6.531186       NA 4.749513 5.804187 6.686394 5.975107</span></span></code></pre></div>
-<p>This is useful when you want to see not just presence/absence, but
-how strongly each orthogroup is predicted as an effector in each
-assembly.</p>
+<span><span class="co">#&gt; OG_acc_01 5.715893       NA       NA       NA 5.166307 4.349692</span></span>
+<span><span class="co">#&gt; OG_acc_02 4.573136 4.449630       NA 6.105342 6.137450       NA</span></span>
+<span><span class="co">#&gt; OG_acc_03 6.999290 5.138241 5.778877 6.306409 5.961777       NA</span></span>
+<span><span class="co">#&gt; OG_acc_04 5.505549 6.366047 5.559538 5.049768       NA       NA</span></span>
+<span><span class="co">#&gt; OG_acc_05 6.460179       NA 4.726615 6.125112 6.574661 6.382732</span></span></code></pre></div>
+</div>
 </div>
 <div class="section level2">
 <h2 id="visualizing-effector-repertoires">Visualizing Effector Repertoires<a class="anchor" aria-label="anchor" href="#visualizing-effector-repertoires"></a>
 </h2>
 <div class="section level3">
-<h3 id="heatmap-with-score-colors">Heatmap with Score Colors<a class="anchor" aria-label="anchor" href="#heatmap-with-score-colors"></a>
+<h3 id="heatmap">Heatmap<a class="anchor" aria-label="anchor" href="#heatmap"></a>
 </h3>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Binary heatmap (presence/absence)</span></span>
-<span><span class="va">ht</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plot_heatmap.html">plot_heatmap</a></span><span class="op">(</span></span>
-<span>  <span class="va">pa_filtered</span>,</span>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">ht</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plot_heatmap.html">plot_heatmap</a></span><span class="op">(</span></span>
+<span>  <span class="va">pa</span>,</span>
 <span>  cluster_rows <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  cluster_cols <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  show_row_names <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  color <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"white"</span>, <span class="st">"darkred"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu">ComplexHeatmap</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/ComplexHeatmap/man/draw-dispatch.html" class="external-link">draw</a></span><span class="op">(</span><span class="va">ht</span><span class="op">)</span></span></code></pre></div>
-<p><img src="effector-analysis_files/figure-html/heatmap-scores-1.png" class="r-plt" alt="" width="1050"></p>
+<p><img src="effector-analysis_files/figure-html/heatmap-1.png" class="r-plt" alt="" width="1050"></p>
 </div>
 <div class="section level3">
-<h3 id="upset-plot-for-effector-sharing">UpSet Plot for Effector Sharing<a class="anchor" aria-label="anchor" href="#upset-plot-for-effector-sharing"></a>
+<h3 id="upset-plot">UpSet Plot<a class="anchor" aria-label="anchor" href="#upset-plot"></a>
 </h3>
-<p>Which effectors are shared vs unique?</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_upset.html">plot_upset</a></span><span class="op">(</span><span class="va">pa_filtered</span>, min_size <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<p>Which effector combinations are most common?</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_upset.html">plot_upset</a></span><span class="op">(</span><span class="va">pa</span>, min_size <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Warning: `aes_string()` was deprecated in ggplot2 3.0.0.</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> Please use tidy evaluation idioms with `aes()`.</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> See also `vignette("ggplot2-in-packages")` for more information.</span></span>
@@ -407,121 +417,70 @@ assembly.</p>
 <span><span class="co">#&gt; <span style="color: #555555;">This warning is displayed once per session.</span></span></span>
 <span><span class="co">#&gt; <span style="color: #555555;">Call `lifecycle::last_lifecycle_warnings()` to see where this warning was</span></span></span>
 <span><span class="co">#&gt; <span style="color: #555555;">generated.</span></span></span></code></pre></div>
-<p><img src="effector-analysis_files/figure-html/upset-effectors-1.png" class="r-plt" alt="" width="1050"></p>
+<p><img src="effector-analysis_files/figure-html/upset-1.png" class="r-plt" alt="" width="1050"></p>
 </div>
 <div class="section level3">
-<h3 id="assembly-similarity">Assembly Similarity<a class="anchor" aria-label="anchor" href="#assembly-similarity"></a>
+<h3 id="assembly-dendrogram">Assembly Dendrogram<a class="anchor" aria-label="anchor" href="#assembly-dendrogram"></a>
 </h3>
-<p>How similar are the effector repertoires between assemblies?</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_dendro.html">plot_dendro</a></span><span class="op">(</span><span class="va">pa_filtered</span>, distance_method <span class="op">=</span> <span class="st">"jaccard"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="effector-analysis_files/figure-html/dendro-effectors-1.png" class="r-plt" alt="" width="1050"></p>
-</div>
-</div>
-<div class="section level2">
-<h2 id="identifying-core-vs-accessory-effectors">Identifying Core vs Accessory Effectors<a class="anchor" aria-label="anchor" href="#identifying-core-vs-accessory-effectors"></a>
-</h2>
-<div class="section level3">
-<h3 id="core-effectors">Core Effectors<a class="anchor" aria-label="anchor" href="#core-effectors"></a>
-</h3>
-<p>Present in all assemblies - likely essential for pathogenicity:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Find orthogroups present in all assemblies</span></span>
-<span><span class="va">n_assemblies</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">ncol</a></span><span class="op">(</span><span class="va">pa_filtered</span><span class="op">$</span><span class="va">matrix</span><span class="op">)</span></span>
-<span><span class="va">presence_count</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">pa_filtered</span><span class="op">$</span><span class="va">matrix</span><span class="op">)</span></span>
-<span><span class="va">core_og</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">presence_count</span><span class="op">[</span><span class="va">presence_count</span> <span class="op">==</span> <span class="va">n_assemblies</span><span class="op">]</span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Core effector orthogroups:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">core_og</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Core effector orthogroups: 10</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Names:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">core_og</span>, collapse <span class="op">=</span> <span class="st">", "</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Names: OG_core_01, OG_core_02, OG_core_03, OG_core_04, OG_core_05, OG_core_06, OG_core_07, OG_core_08, OG_core_09, OG_core_10</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="accessory-effectors">Accessory Effectors<a class="anchor" aria-label="anchor" href="#accessory-effectors"></a>
-</h3>
-<p>Present in some but not all assemblies:</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">accessory_og</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">presence_count</span><span class="op">[</span><span class="va">presence_count</span> <span class="op">&gt;</span> <span class="fl">1</span> <span class="op">&amp;</span> <span class="va">presence_count</span> <span class="op">&lt;</span> <span class="va">n_assemblies</span><span class="op">]</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Accessory effector orthogroups:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">accessory_og</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Accessory effector orthogroups: 26</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="unique-effectors-singletons">Unique Effectors (Singletons)<a class="anchor" aria-label="anchor" href="#unique-effectors-singletons"></a>
-</h3>
-<p>Present in only one assembly - may contribute to host
-specificity:</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">unique_og</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">presence_count</span><span class="op">[</span><span class="va">presence_count</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Unique effector orthogroups:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">unique_og</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Unique effector orthogroups: 0</span></span>
-<span></span>
-<span><span class="co"># Which assemblies have them?</span></span>
-<span><span class="va">unique_assemblies</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">pa_filtered</span><span class="op">$</span><span class="va">matrix</span><span class="op">[</span><span class="va">unique_og</span>, , drop <span class="op">=</span> <span class="cn">FALSE</span><span class="op">]</span>, <span class="fl">1</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span><span class="op">[</span><span class="va">x</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span></span>
-<span><span class="op">}</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">unique_assemblies</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; &lt; table of extent 0 &gt;</span></span></code></pre></div>
+<p>How similar are effector repertoires between assemblies?</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_dendro.html">plot_dendro</a></span><span class="op">(</span><span class="va">pa</span>, distance_method <span class="op">=</span> <span class="st">"jaccard"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="effector-analysis_files/figure-html/dendro-1.png" class="r-plt" alt="" width="1050"></p>
 </div>
 </div>
 <div class="section level2">
 <h2 id="exporting-results">Exporting Results<a class="anchor" aria-label="anchor" href="#exporting-results"></a>
 </h2>
 <div class="section level3">
-<h3 id="export-to-csv">Export to CSV<a class="anchor" aria-label="anchor" href="#export-to-csv"></a>
+<h3 id="export-matrices">Export Matrices<a class="anchor" aria-label="anchor" href="#export-matrices"></a>
 </h3>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Export presence/absence matrix</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/write.table.html" class="external-link">write.csv</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="va">pa_filtered</span><span class="op">)</span>,</span>
-<span>  <span class="st">"effector_presence_absence.csv"</span></span>
-<span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/write.table.html" class="external-link">write.csv</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="va">pa</span><span class="op">)</span>, <span class="st">"effector_presence_absence.csv"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Export orthogroup membership</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/write.table.html" class="external-link">write.csv</a></span><span class="op">(</span></span>
-<span>  <span class="va">clusters</span><span class="op">$</span><span class="va">orthogroups</span>,</span>
-<span>  <span class="st">"orthogroup_membership.csv"</span>,</span>
-<span>  row.names <span class="op">=</span> <span class="cn">FALSE</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/write.table.html" class="external-link">write.csv</a></span><span class="op">(</span><span class="va">clusters</span><span class="op">$</span><span class="va">orthogroups</span>, <span class="st">"orthogroup_membership.csv"</span>, row_names <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="get-proteins-from-specific-orthogroups">Get Proteins from Specific Orthogroups<a class="anchor" aria-label="anchor" href="#get-proteins-from-specific-orthogroups"></a>
+<h3 id="export-singletons">Export Singletons<a class="anchor" aria-label="anchor" href="#export-singletons"></a>
 </h3>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Get proteins from core orthogroups</span></span>
-<span><span class="va">core_proteins</span> <span class="op">&lt;-</span> <span class="va">clusters</span><span class="op">$</span><span class="va">orthogroups</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">orthogroup_id</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">core_og</span><span class="op">)</span></span>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># All singletons with scores</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/write.table.html" class="external-link">write.csv</a></span><span class="op">(</span><span class="va">singleton_scores</span>, <span class="st">"all_singletons_with_scores.csv"</span>, row.names <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">core_proteins</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 3</span></span></span>
-<span><span class="co">#&gt;   orthogroup_id assembly protein_id</span></span>
-<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>         <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>     </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> OG_core_01    asm_A    asm_A_p001</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> OG_core_01    asm_B    asm_B_p002</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> OG_core_01    asm_C    asm_C_p003</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> OG_core_01    asm_D    asm_D_p004</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> OG_core_01    asm_E    asm_E_p005</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> OG_core_01    asm_F    asm_F_p006</span></span></code></pre></div>
+<span><span class="co"># Summary by assembly</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/write.table.html" class="external-link">write.csv</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="../reference/singletons_by_assembly.html">singletons_by_assembly</a></span><span class="op">(</span><span class="va">clusters</span>, <span class="va">proteins</span><span class="op">)</span>,</span>
+<span>  <span class="st">"singletons_summary.csv"</span>,</span>
+<span>  row.names <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
 <h2 id="summary">Summary<a class="anchor" aria-label="anchor" href="#summary"></a>
 </h2>
-<p>Key steps for effector analysis:</p>
+<p>Key steps for effector analysis with paneffectR:</p>
 <ol style="list-style-type: decimal">
-<li>Load omnieff output with
+<li>
+<strong>Load data</strong> with
 <code>load_proteins(fasta_dir, score_dir)</code>
 </li>
-<li>Explore scores with <code><a href="../reference/plot_scores.html">plot_scores()</a></code>
-</li>
-<li>Cluster with <code><a href="../reference/cluster_proteins.html">cluster_proteins()</a></code>
-</li>
-<li>Filter by score in
-<code>build_pa_matrix(score_threshold = ...)</code>
-</li>
-<li>Visualize with <code><a href="../reference/plot_heatmap.html">plot_heatmap()</a></code>,
+<li>
+<strong>Cluster</strong> with <code><a href="../reference/cluster_proteins.html">cluster_proteins()</a></code>
+(requires DIAMOND)</li>
+<li>
+<strong>Examine singletons first</strong> - use
+<code><a href="../reference/get_singletons.html">get_singletons()</a></code> and check their scores</li>
+<li>
+<strong>Build matrices</strong> with <code><a href="../reference/build_pa_matrix.html">build_pa_matrix()</a></code>,
+optionally filtering by score</li>
+<li>
+<strong>Visualize</strong> with <code><a href="../reference/plot_heatmap.html">plot_heatmap()</a></code>,
 <code><a href="../reference/plot_upset.html">plot_upset()</a></code>, <code><a href="../reference/plot_dendro.html">plot_dendro()</a></code>
 </li>
-<li>Identify core/accessory/unique effectors</li>
+<li>
+<strong>Export</strong> singletons and orthogroup membership for
+follow-up</li>
 </ol>
 </div>
 <div class="section level2">

@@ -103,6 +103,7 @@ clusters <- readRDS(file.path(visual_dir, "clusters_visual.rds"))
 clusters
 #> -- orthogroup_result (synthetic_visual) --
 #> 50 orthogroups
+#> 12 singletons
 ```
 
 ### Understanding the Results
@@ -113,16 +114,23 @@ clusters$stats
 #> # A tibble: 1 × 4
 #>   n_orthogroups n_singletons n_proteins_clustered n_assemblies
 #>           <int>        <int>                <int>        <int>
-#> 1            50            0                  160            6
+#> 1            50           12                  160            6
 
 # How many singletons (unique proteins)?
 n_singletons(clusters)
-#> [1] 0
+#> [1] 12
 
 # Singletons per assembly
 singletons_by_assembly(clusters)
-#> # A tibble: 0 × 2
-#> # ℹ 2 variables: assembly <chr>, n_singletons <int>
+#> # A tibble: 6 × 2
+#>   assembly n_singletons
+#>   <chr>           <int>
+#> 1 asm_A               2
+#> 2 asm_B               2
+#> 3 asm_C               2
+#> 4 asm_D               2
+#> 5 asm_E               2
+#> 6 asm_F               2
 ```
 
 ## Building the Presence/Absence Matrix
@@ -134,8 +142,8 @@ assemblies:
 pa <- build_pa_matrix(clusters, type = "binary")
 pa
 #> -- pa_matrix (binary) --
-#> 50 orthogroups x 6 assemblies
-#> Sparsity: 46.7%
+#> 62 orthogroups x 6 assemblies
+#> Sparsity: 53.8%
 
 # Include singletons (default) or exclude them
 pa_no_singletons <- build_pa_matrix(
@@ -145,7 +153,7 @@ pa_no_singletons <- build_pa_matrix(
 )
 
 cat("With singletons:", nrow(pa$matrix), "orthogroups\n")
-#> With singletons: 50 orthogroups
+#> With singletons: 62 orthogroups
 cat("Without singletons:", nrow(pa_no_singletons$matrix), "orthogroups\n")
 #> Without singletons: 50 orthogroups
 ```
@@ -163,9 +171,9 @@ presence_count <- rowSums(pa$matrix)
 # Core = present in all
 core_og <- names(presence_count[presence_count == n_assemblies])
 cat("Core orthogroups:", length(core_og), "of", length(presence_count), "\n")
-#> Core orthogroups: 10 of 50
+#> Core orthogroups: 10 of 62
 cat("Core percentage:", round(100 * length(core_og) / length(presence_count), 1), "%\n")
-#> Core percentage: 20 %
+#> Core percentage: 16.1 %
 ```
 
 ### Accessory Genome
@@ -178,7 +186,7 @@ accessory_og <- names(presence_count[presence_count > 1 & presence_count < n_ass
 cat("Accessory orthogroups:", length(accessory_og), "\n")
 #> Accessory orthogroups: 30
 cat("Accessory percentage:", round(100 * length(accessory_og) / length(presence_count), 1), "%\n")
-#> Accessory percentage: 60 %
+#> Accessory percentage: 48.4 %
 ```
 
 ### Unique Genes
@@ -188,9 +196,9 @@ Proteins present in only one assembly (including singletons):
 ``` r
 unique_og <- names(presence_count[presence_count == 1])
 cat("Unique orthogroups:", length(unique_og), "\n")
-#> Unique orthogroups: 10
+#> Unique orthogroups: 22
 cat("Unique percentage:", round(100 * length(unique_og) / length(presence_count), 1), "%\n")
-#> Unique percentage: 20 %
+#> Unique percentage: 35.5 %
 ```
 
 ### Pan-Genome Summary
@@ -208,10 +216,10 @@ pan_summary <- data.frame(
 )
 pan_summary
 #>    Category Count Percentage
-#> 1      Core    10         20
-#> 2 Accessory    30         60
-#> 3    Unique    10         20
-#> 4     Total    50        100
+#> 1      Core    10       16.1
+#> 2 Accessory    30       48.4
+#> 3    Unique    22       35.5
+#> 4     Total    62      100.0
 ```
 
 ## Visualizing the Pan-Genome
@@ -318,12 +326,12 @@ for (i in 1:n) {
 
 round(sim_matrix, 2)
 #>       asm_A asm_B asm_C asm_D asm_E asm_F
-#> asm_A  1.00  0.49  0.50  0.53  0.44  0.33
-#> asm_B  0.49  1.00  0.54  0.57  0.53  0.38
-#> asm_C  0.50  0.54  1.00  0.46  0.46  0.43
-#> asm_D  0.53  0.57  0.46  1.00  0.49  0.42
-#> asm_E  0.44  0.53  0.46  0.49  1.00  0.59
-#> asm_F  0.33  0.38  0.43  0.42  0.59  1.00
+#> asm_A  1.00  0.44  0.44  0.47  0.40  0.30
+#> asm_B  0.44  1.00  0.49  0.51  0.48  0.35
+#> asm_C  0.44  0.49  1.00  0.41  0.41  0.38
+#> asm_D  0.47  0.51  0.41  1.00  0.44  0.38
+#> asm_E  0.40  0.48  0.41  0.44  1.00  0.53
+#> asm_F  0.30  0.35  0.38  0.38  0.53  1.00
 ```
 
 ### Which Assemblies Share the Most?
@@ -338,7 +346,7 @@ cat("Most similar pair:",
     assemblies[max_idx[1]], "and", assemblies[max_idx[2]],
     "\nJaccard similarity:", round(max(sim_matrix_upper), 3), "\n")
 #> Most similar pair: asm_F and asm_E 
-#> Jaccard similarity: 0.588
+#> Jaccard similarity: 0.526
 ```
 
 ## Assembly-Specific Analysis
@@ -349,14 +357,28 @@ cat("Most similar pair:",
 # Get singletons with assembly information
 singletons_df <- singletons_by_assembly(clusters)
 singletons_df
-#> # A tibble: 0 × 2
-#> # ℹ 2 variables: assembly <chr>, n_singletons <int>
+#> # A tibble: 6 × 2
+#>   assembly n_singletons
+#>   <chr>           <int>
+#> 1 asm_A               2
+#> 2 asm_B               2
+#> 3 asm_C               2
+#> 4 asm_D               2
+#> 5 asm_E               2
+#> 6 asm_F               2
 
 # Which assembly has the most unique proteins?
 singletons_df %>%
   arrange(desc(n_singletons))
-#> # A tibble: 0 × 2
-#> # ℹ 2 variables: assembly <chr>, n_singletons <int>
+#> # A tibble: 6 × 2
+#>   assembly n_singletons
+#>   <chr>           <int>
+#> 1 asm_A               2
+#> 2 asm_B               2
+#> 3 asm_C               2
+#> 4 asm_D               2
+#> 5 asm_E               2
+#> 6 asm_F               2
 ```
 
 ### Orthogroups Missing from One Assembly
@@ -365,7 +387,7 @@ singletons_df %>%
 # Which orthogroups are missing from asm_A?
 missing_from_asm_A <- pa$matrix[pa$matrix[, "asm_A"] == 0, , drop = FALSE]
 cat("Orthogroups missing from asm_A:", nrow(missing_from_asm_A), "\n")
-#> Orthogroups missing from asm_A: 27
+#> Orthogroups missing from asm_A: 37
 ```
 
 ## Exporting Results

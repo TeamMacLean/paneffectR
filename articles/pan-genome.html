@@ -175,7 +175,8 @@ you’ll need to prefix them with assembly names.</p>
 <span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">visual_dir</span>, <span class="st">"clusters_visual.rds"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">clusters</span></span>
 <span><span class="co">#&gt; -- orthogroup_result (synthetic_visual) --</span></span>
-<span><span class="co">#&gt; 50 orthogroups</span></span></code></pre></div>
+<span><span class="co">#&gt; 50 orthogroups</span></span>
+<span><span class="co">#&gt; 12 singletons</span></span></code></pre></div>
 <div class="section level3">
 <h3 id="understanding-the-results">Understanding the Results<a class="anchor" aria-label="anchor" href="#understanding-the-results"></a>
 </h3>
@@ -185,16 +186,23 @@ you’ll need to prefix them with assembly names.</p>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 4</span></span></span>
 <span><span class="co">#&gt;   n_orthogroups n_singletons n_proteins_clustered n_assemblies</span></span>
 <span><span class="co">#&gt;           <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>                <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>            50            0                  160            6</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>            50           12                  160            6</span></span>
 <span></span>
 <span><span class="co"># How many singletons (unique proteins)?</span></span>
 <span><span class="fu"><a href="../reference/n_singletons.html">n_singletons</a></span><span class="op">(</span><span class="va">clusters</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 0</span></span>
+<span><span class="co">#&gt; [1] 12</span></span>
 <span></span>
 <span><span class="co"># Singletons per assembly</span></span>
 <span><span class="fu"><a href="../reference/singletons_by_assembly.html">singletons_by_assembly</a></span><span class="op">(</span><span class="va">clusters</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 0 × 2</span></span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 2 variables: assembly &lt;chr&gt;, n_singletons &lt;int&gt;</span></span></span></code></pre></div>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 2</span></span></span>
+<span><span class="co">#&gt;   assembly n_singletons</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> asm_A               2</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> asm_B               2</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> asm_C               2</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> asm_D               2</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> asm_E               2</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> asm_F               2</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -206,8 +214,8 @@ assemblies:</p>
 <code class="sourceCode R"><span><span class="va">pa</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_pa_matrix.html">build_pa_matrix</a></span><span class="op">(</span><span class="va">clusters</span>, type <span class="op">=</span> <span class="st">"binary"</span><span class="op">)</span></span>
 <span><span class="va">pa</span></span>
 <span><span class="co">#&gt; -- pa_matrix (binary) --</span></span>
-<span><span class="co">#&gt; 50 orthogroups x 6 assemblies</span></span>
-<span><span class="co">#&gt; Sparsity: 46.7%</span></span>
+<span><span class="co">#&gt; 62 orthogroups x 6 assemblies</span></span>
+<span><span class="co">#&gt; Sparsity: 53.8%</span></span>
 <span></span>
 <span><span class="co"># Include singletons (default) or exclude them</span></span>
 <span><span class="va">pa_no_singletons</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_pa_matrix.html">build_pa_matrix</a></span><span class="op">(</span></span>
@@ -217,7 +225,7 @@ assemblies:</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"With singletons:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">pa</span><span class="op">$</span><span class="va">matrix</span><span class="op">)</span>, <span class="st">"orthogroups\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; With singletons: 50 orthogroups</span></span>
+<span><span class="co">#&gt; With singletons: 62 orthogroups</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Without singletons:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">pa_no_singletons</span><span class="op">$</span><span class="va">matrix</span><span class="op">)</span>, <span class="st">"orthogroups\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Without singletons: 50 orthogroups</span></span></code></pre></div>
 </div>
@@ -235,9 +243,9 @@ assemblies:</p>
 <span><span class="co"># Core = present in all</span></span>
 <span><span class="va">core_og</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">presence_count</span><span class="op">[</span><span class="va">presence_count</span> <span class="op">==</span> <span class="va">n_assemblies</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Core orthogroups:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">core_og</span><span class="op">)</span>, <span class="st">"of"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">presence_count</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Core orthogroups: 10 of 50</span></span>
+<span><span class="co">#&gt; Core orthogroups: 10 of 62</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Core percentage:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fl">100</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">core_og</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">presence_count</span><span class="op">)</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"%\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Core percentage: 20 %</span></span></code></pre></div>
+<span><span class="co">#&gt; Core percentage: 16.1 %</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="accessory-genome">Accessory Genome<a class="anchor" aria-label="anchor" href="#accessory-genome"></a>
@@ -249,7 +257,7 @@ assemblies:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Accessory orthogroups:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">accessory_og</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Accessory orthogroups: 30</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Accessory percentage:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fl">100</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">accessory_og</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">presence_count</span><span class="op">)</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"%\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Accessory percentage: 60 %</span></span></code></pre></div>
+<span><span class="co">#&gt; Accessory percentage: 48.4 %</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="unique-genes">Unique Genes<a class="anchor" aria-label="anchor" href="#unique-genes"></a>
@@ -258,9 +266,9 @@ assemblies:</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">unique_og</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">presence_count</span><span class="op">[</span><span class="va">presence_count</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Unique orthogroups:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">unique_og</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Unique orthogroups: 10</span></span>
+<span><span class="co">#&gt; Unique orthogroups: 22</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Unique percentage:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fl">100</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">unique_og</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">presence_count</span><span class="op">)</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"%\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Unique percentage: 20 %</span></span></code></pre></div>
+<span><span class="co">#&gt; Unique percentage: 35.5 %</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="pan-genome-summary">Pan-Genome Summary<a class="anchor" aria-label="anchor" href="#pan-genome-summary"></a>
@@ -278,10 +286,10 @@ assemblies:</p>
 <span><span class="op">)</span></span>
 <span><span class="va">pan_summary</span></span>
 <span><span class="co">#&gt;    Category Count Percentage</span></span>
-<span><span class="co">#&gt; 1      Core    10         20</span></span>
-<span><span class="co">#&gt; 2 Accessory    30         60</span></span>
-<span><span class="co">#&gt; 3    Unique    10         20</span></span>
-<span><span class="co">#&gt; 4     Total    50        100</span></span></code></pre></div>
+<span><span class="co">#&gt; 1      Core    10       16.1</span></span>
+<span><span class="co">#&gt; 2 Accessory    30       48.4</span></span>
+<span><span class="co">#&gt; 3    Unique    22       35.5</span></span>
+<span><span class="co">#&gt; 4     Total    62      100.0</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -381,12 +389,12 @@ core (all assemblies)</p>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">sim_matrix</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="co">#&gt;       asm_A asm_B asm_C asm_D asm_E asm_F</span></span>
-<span><span class="co">#&gt; asm_A  1.00  0.49  0.50  0.53  0.44  0.33</span></span>
-<span><span class="co">#&gt; asm_B  0.49  1.00  0.54  0.57  0.53  0.38</span></span>
-<span><span class="co">#&gt; asm_C  0.50  0.54  1.00  0.46  0.46  0.43</span></span>
-<span><span class="co">#&gt; asm_D  0.53  0.57  0.46  1.00  0.49  0.42</span></span>
-<span><span class="co">#&gt; asm_E  0.44  0.53  0.46  0.49  1.00  0.59</span></span>
-<span><span class="co">#&gt; asm_F  0.33  0.38  0.43  0.42  0.59  1.00</span></span></code></pre></div>
+<span><span class="co">#&gt; asm_A  1.00  0.44  0.44  0.47  0.40  0.30</span></span>
+<span><span class="co">#&gt; asm_B  0.44  1.00  0.49  0.51  0.48  0.35</span></span>
+<span><span class="co">#&gt; asm_C  0.44  0.49  1.00  0.41  0.41  0.38</span></span>
+<span><span class="co">#&gt; asm_D  0.47  0.51  0.41  1.00  0.44  0.38</span></span>
+<span><span class="co">#&gt; asm_E  0.40  0.48  0.41  0.44  1.00  0.53</span></span>
+<span><span class="co">#&gt; asm_F  0.30  0.35  0.38  0.38  0.53  1.00</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="which-assemblies-share-the-most">Which Assemblies Share the Most?<a class="anchor" aria-label="anchor" href="#which-assemblies-share-the-most"></a>
@@ -401,7 +409,7 @@ core (all assemblies)</p>
 <span>    <span class="va">assemblies</span><span class="op">[</span><span class="va">max_idx</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, <span class="st">"and"</span>, <span class="va">assemblies</span><span class="op">[</span><span class="va">max_idx</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">]</span>,</span>
 <span>    <span class="st">"\nJaccard similarity:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">sim_matrix_upper</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Most similar pair: asm_F and asm_E </span></span>
-<span><span class="co">#&gt; Jaccard similarity: 0.588</span></span></code></pre></div>
+<span><span class="co">#&gt; Jaccard similarity: 0.526</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -414,14 +422,28 @@ core (all assemblies)</p>
 <code class="sourceCode R"><span><span class="co"># Get singletons with assembly information</span></span>
 <span><span class="va">singletons_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/singletons_by_assembly.html">singletons_by_assembly</a></span><span class="op">(</span><span class="va">clusters</span><span class="op">)</span></span>
 <span><span class="va">singletons_df</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 0 × 2</span></span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 2 variables: assembly &lt;chr&gt;, n_singletons &lt;int&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 2</span></span></span>
+<span><span class="co">#&gt;   assembly n_singletons</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> asm_A               2</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> asm_B               2</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> asm_C               2</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> asm_D               2</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> asm_E               2</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> asm_F               2</span></span>
 <span></span>
 <span><span class="co"># Which assembly has the most unique proteins?</span></span>
 <span><span class="va">singletons_df</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/desc.html" class="external-link">desc</a></span><span class="op">(</span><span class="va">n_singletons</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 0 × 2</span></span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 2 variables: assembly &lt;chr&gt;, n_singletons &lt;int&gt;</span></span></span></code></pre></div>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 2</span></span></span>
+<span><span class="co">#&gt;   assembly n_singletons</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> asm_A               2</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> asm_B               2</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> asm_C               2</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> asm_D               2</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> asm_E               2</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> asm_F               2</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="orthogroups-missing-from-one-assembly">Orthogroups Missing from One Assembly<a class="anchor" aria-label="anchor" href="#orthogroups-missing-from-one-assembly"></a>
@@ -430,7 +452,7 @@ core (all assemblies)</p>
 <code class="sourceCode R"><span><span class="co"># Which orthogroups are missing from asm_A?</span></span>
 <span><span class="va">missing_from_asm_A</span> <span class="op">&lt;-</span> <span class="va">pa</span><span class="op">$</span><span class="va">matrix</span><span class="op">[</span><span class="va">pa</span><span class="op">$</span><span class="va">matrix</span><span class="op">[</span>, <span class="st">"asm_A"</span><span class="op">]</span> <span class="op">==</span> <span class="fl">0</span>, , drop <span class="op">=</span> <span class="cn">FALSE</span><span class="op">]</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Orthogroups missing from asm_A:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">missing_from_asm_A</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Orthogroups missing from asm_A: 27</span></span></code></pre></div>
+<span><span class="co">#&gt; Orthogroups missing from asm_A: 37</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">

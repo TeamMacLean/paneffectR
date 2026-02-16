@@ -71,6 +71,10 @@ Publication-ready plots for exploring presence/absence patterns.
   : Plot effector score distributions
 - [`plot_dendro()`](https://TeamMacLean.github.io/paneffectR/reference/plot_dendro.md)
   : Plot assembly clustering dendrogram
+- [`plot_pan_structure()`](https://TeamMacLean.github.io/paneffectR/reference/plot_pan_structure.md)
+  : Plot pan-genome structure
+- [`plot_assembly_composition()`](https://TeamMacLean.github.io/paneffectR/reference/plot_assembly_composition.md)
+  : Plot assembly composition
 
 ## Utilities
 

@@ -102,6 +102,7 @@ clusters <- readRDS(file.path(visual_dir, "clusters_visual.rds"))
 clusters
 #> -- orthogroup_result (synthetic_visual) --
 #> 50 orthogroups
+#> 12 singletons
 ```
 
 ### Understanding Orthogroups
@@ -128,12 +129,19 @@ head(clusters$orthogroups)
 
 # How many singletons?
 n_singletons(clusters)
-#> [1] 0
+#> [1] 12
 
 # Singletons by assembly
 singletons_by_assembly(clusters)
-#> # A tibble: 0 × 2
-#> # ℹ 2 variables: assembly <chr>, n_singletons <int>
+#> # A tibble: 6 × 2
+#>   assembly n_singletons
+#>   <chr>           <int>
+#> 1 asm_A               2
+#> 2 asm_B               2
+#> 3 asm_C               2
+#> 4 asm_D               2
+#> 5 asm_E               2
+#> 6 asm_F               2
 ```
 
 ## Step 3: Build Presence/Absence Matrix
@@ -149,8 +157,8 @@ Convert the orthogroups into a matrix where:
 pa <- build_pa_matrix(clusters, type = "binary")
 pa
 #> -- pa_matrix (binary) --
-#> 50 orthogroups x 6 assemblies
-#> Sparsity: 46.7%
+#> 62 orthogroups x 6 assemblies
+#> Sparsity: 53.8%
 
 # View the raw matrix
 pa$matrix[1:10, ]
@@ -178,7 +186,7 @@ pa_no_single <- build_pa_matrix(clusters, type = "binary", exclude_singletons = 
 
 # Compare dimensions
 cat("With singletons:", nrow(pa$matrix), "orthogroups\n")
-#> With singletons: 50 orthogroups
+#> With singletons: 62 orthogroups
 cat("Without singletons:", nrow(pa_no_single$matrix), "orthogroups\n")
 #> Without singletons: 50 orthogroups
 ```
