@@ -32,6 +32,8 @@ Suggests:
     testthat (>= 3.0.0),
     knitr,
     rmarkdown,
+    tidyr,
+    igraph,
     BiocManager,
     covr,
     ragg
