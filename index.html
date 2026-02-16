@@ -107,47 +107,42 @@
 <div class="section level3">
 <h3 id="external-dependencies">External Dependencies<a class="anchor" aria-label="anchor" href="#external-dependencies"></a>
 </h3>
-<p>At least one clustering tool must be installed. DIAMOND is recommended:</p>
-<table class="table">
-<colgroup>
-<col width="20%">
-<col width="31%">
-<col width="48%">
-</colgroup>
-<thead><tr class="header">
-<th>Tool</th>
-<th>Purpose</th>
-<th>Installation</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td><a href="https://github.com/bbuchfink/diamond" class="external-link">DIAMOND</a></td>
-<td>Fast protein alignment (default)</td>
-<td><code>mamba install -c bioconda diamond</code></td>
-</tr>
-<tr class="even">
-<td><a href="https://github.com/davidemms/OrthoFinder" class="external-link">OrthoFinder</a></td>
-<td>Comprehensive ortholog inference</td>
-<td><code>mamba install -c bioconda orthofinder</code></td>
-</tr>
-<tr class="odd">
-<td><a href="https://github.com/soedinglab/MMseqs2" class="external-link">MMseqs2</a></td>
-<td>Ultra-fast clustering for large datasets</td>
-<td><code>mamba install -c bioconda mmseqs2</code></td>
-</tr>
-</tbody>
-</table>
+<p>paneffectR uses <a href="https://github.com/bbuchfink/diamond" class="external-link">DIAMOND</a> for fast protein sequence alignment. Install it via mamba/conda:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="ex">mamba</span> install <span class="at">-c</span> bioconda diamond</span></code></pre></div>
+<p><strong>How paneffectR finds DIAMOND:</strong></p>
+<p>The package searches for DIAMOND in this order:</p>
+<ol style="list-style-type: decimal">
+<li>
+<strong>Explicit path</strong> - Pass <code>tool_path = "/path/to/diamond"</code> to <code><a href="reference/cluster_proteins.html">cluster_proteins()</a></code>
+</li>
+<li>
+<strong>Conda/mamba prefix</strong> - Pass <code>conda_prefix = "./my_env"</code> for project-local environments</li>
+<li>
+<strong>System PATH</strong> - Falls back to <code>Sys.which("diamond")</code>
+</li>
+</ol>
+<p>This flexibility supports various installation scenarios:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># System-wide installation (found via PATH)</span></span>
+<span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Project-local mamba environment</span></span>
+<span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span>, conda_prefix <span class="op">=</span> <span class="st">"./this_project_env"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Explicit path</span></span>
+<span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span>, tool_path <span class="op">=</span> <span class="st">"/opt/diamond/bin/diamond"</span><span class="op">)</span></span></code></pre></div>
+<p>To create a project-local environment:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="ex">mamba</span> create <span class="at">-p</span> ./this_project_env <span class="at">-c</span> bioconda diamond</span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
 <h2 id="quick-start">Quick Start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
 </h2>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/TeamMacLean/paneffectR" class="external-link">paneffectR</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Load proteins from multiple assemblies</span></span>
 <span><span class="va">proteins</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/load_proteins.html">load_proteins</a></span><span class="op">(</span></span>
-<span></span>
 <span>  fasta_dir <span class="op">=</span> <span class="st">"path/to/fastas/"</span>,</span>
 <span>  score_dir <span class="op">=</span> <span class="st">"path/to/scores/"</span></span>
 <span><span class="op">)</span></span>
@@ -171,7 +166,7 @@
 <h3 id="effector-comparative-genomics">Effector Comparative Genomics<a class="anchor" aria-label="anchor" href="#effector-comparative-genomics"></a>
 </h3>
 <p>Take output from the <a href="https://github.com/TeamMacLean/omnieff" class="external-link">omnieff</a> pipeline, find orthologous effectors across assemblies, and filter by prediction confidence:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Load omnieff output (FASTAs + scores)</span></span>
 <span><span class="va">proteins</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/load_proteins.html">load_proteins</a></span><span class="op">(</span></span>
 <span>  fasta_dir <span class="op">=</span> <span class="st">"omnieff_output/reformatted/"</span>,</span>
@@ -189,7 +184,7 @@
 <h3 id="general-pan-genome-analysis">General Pan-Genome Analysis<a class="anchor" aria-label="anchor" href="#general-pan-genome-analysis"></a>
 </h3>
 <p>Compare any protein sets without effector scores:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Load raw FASTAs</span></span>
 <span><span class="va">proteins</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/load_proteins.html">load_proteins</a></span><span class="op">(</span>fasta_dir <span class="op">=</span> <span class="st">"my_assemblies/"</span><span class="op">)</span></span>
 <span></span>

@@ -46,13 +46,41 @@ devtools::install_github("TeamMacLean/paneffectR")
 
 ### External Dependencies
 
-At least one clustering tool must be installed. DIAMOND is recommended:
+paneffectR uses [DIAMOND](https://github.com/bbuchfink/diamond) for fast
+protein sequence alignment. Install it via mamba/conda:
 
-| Tool                                                    | Purpose                                  | Installation                            |
-|---------------------------------------------------------|------------------------------------------|-----------------------------------------|
-| [DIAMOND](https://github.com/bbuchfink/diamond)         | Fast protein alignment (default)         | `mamba install -c bioconda diamond`     |
-| [OrthoFinder](https://github.com/davidemms/OrthoFinder) | Comprehensive ortholog inference         | `mamba install -c bioconda orthofinder` |
-| [MMseqs2](https://github.com/soedinglab/MMseqs2)        | Ultra-fast clustering for large datasets | `mamba install -c bioconda mmseqs2`     |
+``` bash
+mamba install -c bioconda diamond
+```
+
+**How paneffectR finds DIAMOND:**
+
+The package searches for DIAMOND in this order:
+
+1.  **Explicit path** - Pass `tool_path = "/path/to/diamond"` to
+    [`cluster_proteins()`](https://TeamMacLean.github.io/paneffectR/reference/cluster_proteins.md)
+2.  **Conda/mamba prefix** - Pass `conda_prefix = "./my_env"` for
+    project-local environments
+3.  **System PATH** - Falls back to `Sys.which("diamond")`
+
+This flexibility supports various installation scenarios:
+
+``` r
+# System-wide installation (found via PATH)
+clusters <- cluster_proteins(proteins)
+
+# Project-local mamba environment
+clusters <- cluster_proteins(proteins, conda_prefix = "./this_project_env")
+
+# Explicit path
+clusters <- cluster_proteins(proteins, tool_path = "/opt/diamond/bin/diamond")
+```
+
+To create a project-local environment:
+
+``` bash
+mamba create -p ./this_project_env -c bioconda diamond
+```
 
 ## Quick Start
 
@@ -61,7 +89,6 @@ library(paneffectR)
 
 # Load proteins from multiple assemblies
 proteins <- load_proteins(
-
   fasta_dir = "path/to/fastas/",
   score_dir = "path/to/scores/"
 )
