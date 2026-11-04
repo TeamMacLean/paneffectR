@@ -38,21 +38,26 @@ install.packages("BiocManager")
 BiocManager::install(c("ComplexHeatmap", "Biostrings"))
 ```
 
-Then install paneffectR from GitHub with either `pak` or `remotes`:
+paneffectR is not on CRAN, so you need a GitHub installer. Install `pak`
+(or `remotes`) once, then install paneffectR:
 
 ``` r
 
-# install.packages("pak")
+install.packages("pak")
 pak::pak("TeamMacLean/paneffectR")
+```
 
-# or
-# install.packages("remotes")
+or, equivalently:
+
+``` r
+
+install.packages("remotes")
 remotes::install_github("TeamMacLean/paneffectR")
 ```
 
 (`devtools::install_github()` is deprecated in devtools \>= 2.5 and
 fails unless `remotes` is also installed.) The BiocManager step above is
-optional, since `remotes`/`pak` can resolve the Bioconductor
+optional, since `pak`/`remotes` can resolve the Bioconductor
 dependencies themselves, but it is faster and avoids building them from
 source.
 
