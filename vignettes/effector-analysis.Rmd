@@ -221,14 +221,14 @@ pa_score$matrix[1:5, ]
 ### Heatmap
 
 ```{r heatmap, fig.height=6}
-ht <- plot_heatmap(
-  pa,
-  cluster_rows = TRUE,
-  cluster_cols = TRUE,
-  show_row_names = FALSE,
-  color = c("white", "darkred")
-)
-ComplexHeatmap::draw(ht)
+plot_heatmap(pa)
+```
+
+The `"pan"` style separates effectors found in every isolate from those
+found in only some or one (see `vignette("styling-heatmaps")`):
+
+```{r heatmap-pan, fig.height=6}
+plot_heatmap(pa, style = "pan")
 ```
 
 ### UpSet Plot

@@ -1,3 +1,22 @@
+# paneffectR 0.1.2
+
+## Heatmap styles
+
+* `plot_heatmap()` gains a `style` argument with three ready-made looks:
+  `"clean"` (new default: one hue on a light grey grid), `"pan"` (rows split
+  into Core / Accessory / Unique blocks with a coloured side bar; binary cells
+  take the class colour) and `"mono"` (black on white for print).
+* All styles label the legend "Absent"/"Present" with a meaningful title, draw a
+  light grid between cells on matrices of up to 200 rows, use slimmer
+  dendrograms and angled column labels. Score matrices use an orange ramp so they
+  are not mistaken for presence/absence; count matrices whose maximum is 1 use
+  the binary colours.
+* Arguments passed through `...` to `ComplexHeatmap::Heatmap()` now override the
+  style's settings instead of erroring on duplicate arguments.
+* New vignette, "Styling Heatmaps", covering the three styles, shared arguments,
+  saving figures and how to go further with ComplexHeatmap. README and the
+  other vignettes use the new styles.
+
 # paneffectR 0.1.1
 
 Fixes from a new-user functional test pass (see GitHub issues for details).

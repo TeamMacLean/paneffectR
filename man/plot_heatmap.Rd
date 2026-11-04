@@ -6,6 +6,7 @@
 \usage{
 plot_heatmap(
   pa,
+  style = c("clean", "pan", "mono"),
   cluster_rows = TRUE,
   cluster_cols = TRUE,
   show_row_names = FALSE,
@@ -21,6 +22,9 @@ plot_heatmap(
 \arguments{
 \item{pa}{A \code{pa_matrix} object.}
 
+\item{style}{Character. One of \code{"clean"} (default), \code{"pan"} or \code{"mono"}.
+See "Styles".}
+
 \item{cluster_rows}{Logical. Whether to cluster rows (default: TRUE).}
 
 \item{cluster_cols}{Logical. Whether to cluster columns (default: TRUE).}
@@ -30,7 +34,7 @@ plot_heatmap(
 \item{show_col_names}{Logical. Whether to show column names (default: TRUE).}
 
 \item{color}{Character vector or color function. Colors for the heatmap.
-If NULL, auto-detected based on pa$type.}
+If NULL, chosen from \code{style} and \code{pa$type}.}
 
 \item{row_annotation}{A data.frame with row names matching orthogroup IDs.
 Columns become annotation tracks on the left side.}
@@ -45,7 +49,8 @@ Columns become annotation tracks on the top.}
 done on distinct patterns rather than individual rows (default 5000).
 See "Large matrices".}
 
-\item{...}{Additional arguments passed to ComplexHeatmap::Heatmap().}
+\item{...}{Additional arguments passed to ComplexHeatmap::Heatmap(). These
+take precedence over the style's settings.}
 }
 \value{
 A ComplexHeatmap Heatmap object.
@@ -54,6 +59,40 @@ A ComplexHeatmap Heatmap object.
 Creates a heatmap visualization of the presence/absence matrix using
 ComplexHeatmap. Rows are orthogroups, columns are assemblies.
 }
+\section{Styles}{
+
+\code{style} selects a ready-made look. All three use the same layout rules
+(light grid between cells on matrices of up to 200 rows, slim dendrograms,
+angled column labels, legends labelled "Absent"/"Present") and differ in
+colour and in what the rows say:
+\itemize{
+\item \code{"clean"} (default): one hue on a light grey background. Binary and count
+matrices are blue; score matrices are orange so that they are never
+mistaken for presence/absence.
+\item \code{"pan"}: rows are split into \strong{Core} (present in every assembly),
+\strong{Accessory} (present in more than one but not all) and \strong{Unique}
+(present in exactly one) blocks, each with a coloured side bar. On binary
+matrices the cells themselves take the class colour; on count and score
+matrices the cells keep the magnitude ramp and the class is shown by the
+split. Note that \code{plot_pan_structure()} further divides Accessory into
+Accessory and Rare using thresholds; the heatmap does not.
+\item \code{"mono"}: black on white with grey grid lines, for print and greyscale
+figures.
+}
+
+\code{color} overrides the cell colours of any style. Count matrices whose
+maximum is 1 are drawn with the binary colours.
+}
+
+\section{Customising further}{
+
+The return value is a \code{ComplexHeatmap::Heatmap} object, so anything that
+package can do applies. Arguments in \code{...} are passed to
+\code{\link[ComplexHeatmap:Heatmap]{ComplexHeatmap::Heatmap()}} and override the style's settings, e.g.
+\code{column_title = "Effectors"}, \code{rect_gp = grid::gpar(col = NA)} to remove
+the grid, or \code{column_names_rot = 90}. See \code{vignette("styling-heatmaps")}.
+}
+
 \section{Large matrices}{
 
 Clustering every row of a matrix with tens of thousands of orthogroups is
@@ -72,5 +111,9 @@ pa <- readRDS(file.path(visual_dir, "pa_binary.rds"))
 ht <- plot_heatmap(pa)
 ComplexHeatmap::draw(ht)
 
-plot_heatmap(pa, cluster_rows = FALSE, distance_method = "jaccard")
+# Core / accessory / unique blocks
+plot_heatmap(pa, style = "pan")
+
+# Greyscale for print, no row clustering
+plot_heatmap(pa, style = "mono", cluster_rows = FALSE, distance_method = "jaccard")
 }

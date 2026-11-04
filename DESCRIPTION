@@ -1,6 +1,6 @@
 Package: paneffectR
 Title: Comparative Genomics of Effector Proteins Across Genome Assemblies
-Version: 0.1.1
+Version: 0.1.2
 Authors@R: person("Dan", "MacLean", email = "dan.maclean@tsl.ac.uk",
                   role = c("aut", "cre"),
                   comment = c(ORCID = "0000-0003-1174-3654"))

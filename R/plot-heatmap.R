@@ -9,6 +9,35 @@ NULL
 #' Creates a heatmap visualization of the presence/absence matrix using
 #' ComplexHeatmap. Rows are orthogroups, columns are assemblies.
 #'
+#' @section Styles:
+#' `style` selects a ready-made look. All three use the same layout rules
+#' (light grid between cells on matrices of up to 200 rows, slim dendrograms,
+#' angled column labels, legends labelled "Absent"/"Present") and differ in
+#' colour and in what the rows say:
+#'
+#' * `"clean"` (default): one hue on a light grey background. Binary and count
+#'   matrices are blue; score matrices are orange so that they are never
+#'   mistaken for presence/absence.
+#' * `"pan"`: rows are split into **Core** (present in every assembly),
+#'   **Accessory** (present in more than one but not all) and **Unique**
+#'   (present in exactly one) blocks, each with a coloured side bar. On binary
+#'   matrices the cells themselves take the class colour; on count and score
+#'   matrices the cells keep the magnitude ramp and the class is shown by the
+#'   split. Note that `plot_pan_structure()` further divides Accessory into
+#'   Accessory and Rare using thresholds; the heatmap does not.
+#' * `"mono"`: black on white with grey grid lines, for print and greyscale
+#'   figures.
+#'
+#' `color` overrides the cell colours of any style. Count matrices whose
+#' maximum is 1 are drawn with the binary colours.
+#'
+#' @section Customising further:
+#' The return value is a `ComplexHeatmap::Heatmap` object, so anything that
+#' package can do applies. Arguments in `...` are passed to
+#' [ComplexHeatmap::Heatmap()] and override the style's settings, e.g.
+#' `column_title = "Effectors"`, `rect_gp = grid::gpar(col = NA)` to remove
+#' the grid, or `column_names_rot = 90`. See `vignette("styling-heatmaps")`.
+#'
 #' @section Large matrices:
 #' Clustering every row of a matrix with tens of thousands of orthogroups is
 #' slow and the resulting dendrogram is unreadable. When the matrix has more
@@ -20,12 +49,14 @@ NULL
 #' `score_threshold`.
 #'
 #' @param pa A `pa_matrix` object.
+#' @param style Character. One of `"clean"` (default), `"pan"` or `"mono"`.
+#'   See "Styles".
 #' @param cluster_rows Logical. Whether to cluster rows (default: TRUE).
 #' @param cluster_cols Logical. Whether to cluster columns (default: TRUE).
 #' @param show_row_names Logical. Whether to show row names (default: FALSE).
 #' @param show_col_names Logical. Whether to show column names (default: TRUE).
 #' @param color Character vector or color function. Colors for the heatmap.
-#'   If NULL, auto-detected based on pa$type.
+#'   If NULL, chosen from `style` and `pa$type`.
 #' @param row_annotation A data.frame with row names matching orthogroup IDs.
 #'   Columns become annotation tracks on the left side.
 #' @param col_annotation A data.frame with row names matching assembly names.
@@ -35,7 +66,8 @@ NULL
 #' @param max_cluster_rows Integer. Above this many rows, row clustering is
 #'   done on distinct patterns rather than individual rows (default 5000).
 #'   See "Large matrices".
-#' @param ... Additional arguments passed to ComplexHeatmap::Heatmap().
+#' @param ... Additional arguments passed to ComplexHeatmap::Heatmap(). These
+#'   take precedence over the style's settings.
 #'
 #' @return A ComplexHeatmap Heatmap object.
 #' @export
@@ -46,8 +78,13 @@ NULL
 #' ht <- plot_heatmap(pa)
 #' ComplexHeatmap::draw(ht)
 #'
-#' plot_heatmap(pa, cluster_rows = FALSE, distance_method = "jaccard")
+#' # Core / accessory / unique blocks
+#' plot_heatmap(pa, style = "pan")
+#'
+#' # Greyscale for print, no row clustering
+#' plot_heatmap(pa, style = "mono", cluster_rows = FALSE, distance_method = "jaccard")
 plot_heatmap <- function(pa,
+                         style = c("clean", "pan", "mono"),
                          cluster_rows = TRUE,
                          cluster_cols = TRUE,
                          show_row_names = FALSE,
@@ -64,6 +101,9 @@ plot_heatmap <- function(pa,
     cli::cli_abort("{.arg pa} must be a {.cls pa_matrix} object")
   }
 
+  style <- rlang::arg_match(style)
+  st <- heatmap_style(style)
+
   # Validate distance_method
   valid_methods <- c("binary", "jaccard", "bray-curtis")
   if (!distance_method %in% valid_methods) {
@@ -72,68 +112,104 @@ plot_heatmap <- function(pa,
     )
   }
 
+  mat <- pa$matrix
+  n_rows <- nrow(mat)
+  n_cols <- ncol(mat)
+
+  # NA-free copy for distances and classification (score matrices have NAs)
+  m_clean <- mat
+  if (any(is.na(m_clean))) {
+    m_clean[is.na(m_clean)] <- 0
+  }
+
+  # Orthogroup classes for the pan style
+  og_class <- NULL
+  if (style == "pan") {
+    og_class <- classify_rows(m_clean)
+  }
+
   # Process row annotation
-  row_ha <- NULL
+  row_ann_processed <- NULL
   if (!is.null(row_annotation)) {
-    row_ann_processed <- validate_annotation(
-      row_annotation,
-      rownames(pa$matrix),
-      "row"
-    )
-    if (!is.null(row_ann_processed) && nrow(row_ann_processed) > 0) {
-      row_ha <- ComplexHeatmap::rowAnnotation(df = row_ann_processed)
+    row_ann_processed <- validate_annotation(row_annotation, rownames(mat), "row")
+    if (!is.null(row_ann_processed) && nrow(row_ann_processed) == 0) {
+      row_ann_processed <- NULL
     }
+  }
+  row_ha <- NULL
+  if (style == "pan") {
+    block_cols <- st$class_colors[levels(og_class)]
+    ha_args <- list(
+      class = ComplexHeatmap::anno_block(
+        gp = grid::gpar(fill = block_cols, col = NA),
+        width = grid::unit(2, "mm"),
+        which = "row"
+      ),
+      show_annotation_name = FALSE
+    )
+    if (!is.null(row_ann_processed)) {
+      ha_args$df <- row_ann_processed
+      ha_args$show_annotation_name <- c(FALSE, rep(TRUE, ncol(row_ann_processed)))
+    }
+    row_ha <- do.call(ComplexHeatmap::rowAnnotation, ha_args)
+  } else if (!is.null(row_ann_processed)) {
+    row_ha <- ComplexHeatmap::rowAnnotation(df = row_ann_processed)
   }
 
   # Process column annotation
   col_ha <- NULL
   if (!is.null(col_annotation)) {
-    col_ann_processed <- validate_annotation(
-      col_annotation,
-      colnames(pa$matrix),
-      "column"
-    )
+    col_ann_processed <- validate_annotation(col_annotation, colnames(mat), "column")
     if (!is.null(col_ann_processed) && nrow(col_ann_processed) > 0) {
       col_ha <- ComplexHeatmap::HeatmapAnnotation(df = col_ann_processed)
     }
   }
 
-  # Auto-detect color scheme if not provided
-  if (is.null(color)) {
-    max_val <- max(pa$matrix, na.rm = TRUE)
-    min_val <- min(pa$matrix, na.rm = TRUE)
+  # Colours and legend
+  legend_param <- list(
+    title_gp = grid::gpar(fontsize = 9, fontface = "bold"),
+    labels_gp = grid::gpar(fontsize = 9),
+    border = st$legend_border
+  )
+  legend_name <- switch(pa$type, binary = "Orthogroup", count = "Copies", score = "Score")
+  max_val <- suppressWarnings(max(mat, na.rm = TRUE))
+  min_val <- suppressWarnings(min(mat, na.rm = TRUE))
+  draw_mat <- mat
 
-    color <- switch(pa$type,
-      "binary" = c("0" = "white", "1" = "steelblue"),
-      "count" = {
-        # Handle case where all values are the same
-        if (max_val == min_val) {
-          c("white", "steelblue")
-        } else {
-          circlize::colorRamp2(
-            c(0, max_val),
-            c("white", "steelblue")
-          )
-        }
-      },
-      "score" = {
-        # Handle case where all values are the same
-        if (max_val == min_val || is.na(max_val)) {
-          c("white", "firebrick")
-        } else {
-          circlize::colorRamp2(
-            c(0, max_val),
-            c("white", "firebrick")
-          )
-        }
+  if (is.null(color)) {
+    binary_like <- pa$type == "binary" ||
+      (pa$type == "count" && is.finite(max_val) && max_val <= 1)
+
+    if (binary_like && style == "pan") {
+      # Cells coloured by orthogroup class: 0 absent, then class index
+      draw_mat <- (m_clean > 0) * as.integer(og_class)
+      storage.mode(draw_mat) <- "integer"
+      used <- levels(og_class)
+      color <- c("0" = st$absent, stats::setNames(st$class_colors[used], seq_along(used)))
+      legend_param$at <- c(seq_along(used), 0)
+      legend_param$labels <- c(used, "Absent")
+      legend_name <- "Orthogroup"
+    } else if (binary_like) {
+      color <- c("0" = st$absent, "1" = st$present)
+      legend_param$at <- c(0, 1)
+      legend_param$labels <- c("Absent", "Present")
+      legend_name <- "Orthogroup"
+    } else if (pa$type == "count") {
+      color <- circlize::colorRamp2(c(0, 1, max_val), st$count_ramp)
+    } else {
+      # score: absent cells are NA and drawn in the absent colour
+      if (!is.finite(max_val) || max_val == min_val) {
+        color <- c("0" = st$absent, "1" = st$score_ramp[2])
+        draw_mat <- (m_clean > 0) * 1L
+        legend_param$at <- c(0, 1)
+        legend_param$labels <- c("Absent", "Present")
+      } else {
+        color <- circlize::colorRamp2(c(min_val, max_val), st$score_ramp)
       }
-    )
+    }
   }
 
   # Handle edge cases: disable clustering for single row/column
-  n_rows <- nrow(pa$matrix)
-  n_cols <- ncol(pa$matrix)
-
   if (n_rows < 2) {
     cluster_rows <- FALSE
   }
@@ -141,14 +217,11 @@ plot_heatmap <- function(pa,
     cluster_cols <- FALSE
   }
 
-  # Pre-compute clustering with specified distance method
-  # Handle NA values (score matrices have NAs for absent orthogroups)
-  m_clean <- pa$matrix
-  if (any(is.na(m_clean))) {
-    m_clean[is.na(m_clean)] <- 0
-  }
-
+  # Row clustering. With a row split (pan style) ComplexHeatmap must cluster
+  # within each slice itself, so we hand it the distance function instead of
+  # a precomputed hclust.
   row_order <- NULL
+  clustering_distance_rows <- NULL
   if (isTRUE(cluster_rows) && n_rows >= 2) {
     if (n_rows > max_cluster_rows) {
       # Too many rows for a full dendrogram: order by clustering distinct patterns
@@ -160,6 +233,12 @@ plot_heatmap <- function(pa,
       ))
       row_order <- row_order$order
       cluster_rows <- FALSE
+    } else if (style == "pan") {
+      cluster_rows <- TRUE
+      clustering_distance_rows <- function(m) {
+        m[is.na(m)] <- 0
+        calculate_distance(m, distance_method)
+      }
     } else {
       row_dist <- calculate_distance(m_clean, distance_method)
       cluster_rows <- stats::hclust(row_dist)
@@ -170,23 +249,111 @@ plot_heatmap <- function(pa,
     cluster_cols <- stats::hclust(col_dist)
   }
 
-  # Create heatmap
+  # Assemble arguments: style defaults first, then user `...` overrides
   ht_args <- list(
-    pa$matrix,
+    draw_mat,
+    name = legend_name,
+    col = color,
+    na_col = st$absent,
     cluster_rows = cluster_rows,
     cluster_columns = cluster_cols,
     show_row_names = show_row_names,
     show_column_names = show_col_names,
-    col = color,
-    name = pa$type,
-    na_col = "grey90",
     left_annotation = row_ha,
-    top_annotation = col_ha
+    top_annotation = col_ha,
+    heatmap_legend_param = legend_param,
+    rect_gp = if (n_rows <= 200) st$grid_gp else grid::gpar(col = NA),
+    border = st$border,
+    column_names_rot = 45,
+    column_names_gp = grid::gpar(fontsize = 9, col = st$label_col),
+    row_names_gp = grid::gpar(fontsize = 8, col = st$label_col),
+    row_dend_width = grid::unit(10, "mm"),
+    column_dend_height = grid::unit(8, "mm"),
+    row_dend_gp = st$dend_gp,
+    column_dend_gp = st$dend_gp
   )
   if (!is.null(row_order)) {
     ht_args$row_order <- row_order
   }
-  do.call(ComplexHeatmap::Heatmap, c(ht_args, list(...)))
+  if (!is.null(clustering_distance_rows)) {
+    ht_args$clustering_distance_rows <- clustering_distance_rows
+  }
+  if (style == "pan") {
+    ht_args$row_split <- og_class
+    ht_args$cluster_row_slices <- FALSE
+    ht_args$row_title_rot <- 0
+    ht_args$row_title_gp <- grid::gpar(fontsize = 9, fontface = "bold", col = st$label_col)
+    ht_args$row_gap <- grid::unit(1.5, "mm")
+  }
+
+  dots <- list(...)
+  if (length(dots)) {
+    ht_args[names(dots)] <- dots
+  }
+  do.call(ComplexHeatmap::Heatmap, ht_args)
+}
+
+#' Heatmap style parameters
+#'
+#' Colours and graphical parameters for each `plot_heatmap()` style. Hues are
+#' taken from a palette validated for colour-vision deficiency: Core blue,
+#' Accessory green and Unique orange are mutually distinguishable under the
+#' common deficiencies.
+#'
+#' @param style One of "clean", "pan", "mono".
+#' @return A named list.
+#' @keywords internal
+heatmap_style <- function(style) {
+  absent_light <- "#f0efec"
+  ink <- "#1a1a19"
+  switch(style,
+    clean = ,
+    pan = list(
+      absent = absent_light,
+      present = "#2a78d6",
+      count_ramp = c(absent_light, "#9ec5f4", "#0d366b"),
+      score_ramp = c("#fde2d3", "#b3400f"),
+      class_colors = c(Core = "#2a78d6", Accessory = "#1baf7a",
+                       Unique = "#eb6834", Absent = "#c3c2b7"),
+      grid_gp = grid::gpar(col = "white", lwd = 0.8),
+      dend_gp = grid::gpar(col = "#8a8985", lwd = 0.6),
+      label_col = "#52514e",
+      border = FALSE,
+      legend_border = NA
+    ),
+    mono = list(
+      absent = "white",
+      present = ink,
+      count_ramp = c("white", "#c3c2b7", ink),
+      score_ramp = c("#d4d3cf", ink),
+      class_colors = c(Core = ink, Accessory = "#6f6e6a",
+                       Unique = "#b5b4ae", Absent = "#e5e4e0"),
+      grid_gp = grid::gpar(col = "#c3c2b7", lwd = 0.5),
+      dend_gp = grid::gpar(col = ink, lwd = 0.6),
+      label_col = "black",
+      border = ink,
+      legend_border = ink
+    )
+  )
+}
+
+#' Classify orthogroups by how many assemblies they occur in
+#'
+#' Core: present in every column; Unique: present in exactly one; Accessory:
+#' anything in between. Rows with no presence at all (possible after
+#' subsetting) are labelled Absent. Unused levels are dropped so that the
+#' heatmap split only shows classes that occur.
+#'
+#' @param mat Numeric matrix without NAs.
+#' @return A factor with levels in the order Core, Accessory, Unique, Absent.
+#' @keywords internal
+classify_rows <- function(mat) {
+  n <- rowSums(mat > 0)
+  k <- ncol(mat)
+  cls <- ifelse(n == 0, "Absent",
+         ifelse(n == k, "Core",
+         ifelse(n == 1, "Unique", "Accessory")))
+  droplevels(factor(cls, levels = c("Core", "Accessory", "Unique", "Absent")))
 }
 
 #' Order rows by clustering their distinct presence/absence patterns

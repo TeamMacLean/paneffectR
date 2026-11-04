@@ -20,6 +20,8 @@ navbar:
           href: articles/effector-analysis.html
         - text: Pan-Genome Analysis
           href: articles/pan-genome.html
+        - text: Styling Heatmaps
+          href: articles/styling-heatmaps.html
         - text: "---"
         - text: Technical
         - text: Algorithm Deep Dive
@@ -101,6 +103,7 @@ articles:
     contents:
       - effector-analysis
       - pan-genome
+      - styling-heatmaps
 
   - title: Technical
     desc: In-depth explanations of algorithms and methods

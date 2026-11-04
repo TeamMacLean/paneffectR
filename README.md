@@ -124,12 +124,19 @@ clusters <- cluster_proteins(proteins, method = "diamond_rbh")
 # Build presence/absence matrix (filter to high-scoring effectors)
 pa <- build_pa_matrix(clusters, proteins = proteins, score_threshold = 5.0)
 
-# Visualize
-ht <- plot_heatmap(pa)
-ComplexHeatmap::draw(ht)
+# Visualize: the default heatmap, or split into core / accessory / unique
+plot_heatmap(pa)
+plot_heatmap(pa, style = "pan")
 
 plot_upset(pa, min_size = 2)
 ```
+
+`plot_heatmap()` comes with three styles: `"clean"` (the default), `"pan"`,
+which splits orthogroups into core, accessory and unique blocks, and `"mono"`
+for greyscale print. Each is a ComplexHeatmap object you can refine further.
+See [Styling Heatmaps](https://TeamMacLean.github.io/paneffectR/articles/styling-heatmaps.html).
+
+<img src="man/figures/README-heatmap-styles.png" alt="The three plot_heatmap styles: clean, pan and mono" width="100%" />
 
 ## Use Cases
 
@@ -148,8 +155,8 @@ proteins <- load_proteins(
 clusters <- cluster_proteins(proteins)
 pa <- build_pa_matrix(clusters, proteins = proteins, score_threshold = 5.0)
 
-# Visualize effector repertoires
-plot_heatmap(pa) |> ComplexHeatmap::draw()
+# Visualize effector repertoires by core / accessory / unique
+plot_heatmap(pa, style = "pan")
 ```
 
 ### General Pan-Genome Analysis
@@ -174,6 +181,7 @@ plot_dendro(pa, distance_method = "jaccard")
 - **[Getting Started](https://TeamMacLean.github.io/paneffectR/articles/getting-started.html)** - Core workflow tutorial
 - **[Effector Analysis](https://TeamMacLean.github.io/paneffectR/articles/effector-analysis.html)** - Working with omnieff output
 - **[Pan-Genome Analysis](https://TeamMacLean.github.io/paneffectR/articles/pan-genome.html)** - General protein comparisons
+- **[Styling Heatmaps](https://TeamMacLean.github.io/paneffectR/articles/styling-heatmaps.html)** - The three heatmap styles and how to customise them
 - **[Algorithm Deep Dive](https://TeamMacLean.github.io/paneffectR/articles/algorithms.html)** - Technical details for bioinformaticians
 - **[Function Reference](https://TeamMacLean.github.io/paneffectR/reference/index.html)** - Complete API documentation
 
@@ -181,7 +189,7 @@ plot_dendro(pa, distance_method = "jaccard")
 
 If you use paneffectR in your research, please cite:
 
-> MacLean, D. (2026). paneffectR: Comparative Genomics of Effector Proteins. R package version 0.1.0. https://github.com/TeamMacLean/paneffectR
+> MacLean, D. (2026). paneffectR: Comparative Genomics of Effector Proteins. R package version 0.1.2. https://github.com/TeamMacLean/paneffectR
 
 ## License
 

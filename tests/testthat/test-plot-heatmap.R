@@ -377,3 +377,175 @@ test_that("plot_heatmap errors on invalid distance_method", {
     regexp = "distance_method"
   )
 })
+
+# plot_heatmap styles ----------------------------------------------------------
+
+visual_pa <- function(name) {
+  readRDS(file.path(system.file("testdata", "visual", package = "paneffectR"), name))
+}
+
+test_that("plot_heatmap accepts the three styles for every matrix type", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  pa_bin <- visual_pa("pa_binary.rds")
+  pa_score <- visual_pa("pa_score.rds")
+  pa_count <- build_pa_matrix(visual_pa("clusters_visual.rds"), type = "count")
+
+  for (s in c("clean", "pan", "mono")) {
+    for (pa in list(pa_bin, pa_score, pa_count)) {
+      ht <- plot_heatmap(pa, style = s)
+      expect_s4_class(ht, "Heatmap")
+      # Drawing exercises ComplexHeatmap's own argument checks
+      expect_no_error(withr::with_pdf(NULL, ComplexHeatmap::draw(ht)))
+    }
+  }
+})
+
+test_that("plot_heatmap rejects an unknown style", {
+  skip_if_not_installed("ComplexHeatmap")
+  expect_error(plot_heatmap(visual_pa("pa_binary.rds"), style = "fancy"), "style")
+})
+
+test_that("style legends are labelled Absent/Present with a meaningful title", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  ht <- plot_heatmap(visual_pa("pa_binary.rds"))
+  expect_equal(ht@name, "Orthogroup")
+  expect_equal(ht@matrix_legend_param$labels, c("Absent", "Present"))
+
+  ht <- plot_heatmap(visual_pa("pa_score.rds"))
+  expect_equal(ht@name, "Score")
+})
+
+test_that("count matrices with a maximum of 1 use the binary colours", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  pa_count <- build_pa_matrix(visual_pa("clusters_visual.rds"), type = "count")
+  expect_equal(max(pa_count$matrix), 1)
+  ht <- plot_heatmap(pa_count)
+  expect_equal(ht@matrix_legend_param$labels, c("Absent", "Present"))
+})
+
+test_that("classify_rows labels Core, Accessory, Unique and Absent", {
+  m <- rbind(c(1, 1, 1), c(1, 0, 1), c(0, 0, 1), c(0, 0, 0))
+  cls <- classify_rows(m)
+  expect_equal(as.character(cls), c("Core", "Accessory", "Unique", "Absent"))
+  expect_equal(levels(cls), c("Core", "Accessory", "Unique", "Absent"))
+
+  # unused levels are dropped
+  expect_equal(levels(classify_rows(m[1:2, , drop = FALSE])), c("Core", "Accessory"))
+
+  # a single column: every present row is Core
+  expect_equal(as.character(classify_rows(matrix(c(1, 1, 0), ncol = 1))),
+               c("Core", "Core", "Absent"))
+})
+
+test_that("pan style splits rows by class and colours binary cells by class", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  pa <- visual_pa("pa_binary.rds")
+  ht <- ComplexHeatmap::draw(plot_heatmap(pa, style = "pan"))
+  ro <- ComplexHeatmap::row_order(ht)
+  expect_setequal(names(ro), c("Core", "Accessory", "Unique"))
+  expect_equal(sum(lengths(ro)), nrow(pa$matrix))
+
+  # every row in the Core slice is present in all assemblies
+  expect_true(all(rowSums(pa$matrix[ro$Core, , drop = FALSE]) == ncol(pa$matrix)))
+  expect_true(all(rowSums(pa$matrix[ro$Unique, , drop = FALSE]) == 1))
+
+  # cells are coded by class; legend lists the classes
+  lp <- plot_heatmap(pa, style = "pan")@matrix_legend_param
+  expect_equal(lp$labels, c("Core", "Accessory", "Unique", "Absent"))
+})
+
+test_that("pan style keeps the pattern-ordering fallback for large matrices", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  set.seed(2)
+  n <- 300
+  m <- matrix(rbinom(n * 4, 1, 0.5), nrow = n,
+              dimnames = list(sprintf("OG%04d", seq_len(n)), paste0("asm", 1:4)))
+  storage.mode(m) <- "integer"
+  pa <- new_pa_matrix(
+    matrix = m,
+    orthogroups = tibble::tibble(orthogroup_id = rownames(m), size = rowSums(m)),
+    assemblies = tibble::tibble(assembly_name = colnames(m), n_orthogroups = colSums(m))
+  )
+
+  expect_message(
+    ht <- plot_heatmap(pa, style = "pan", max_cluster_rows = 100),
+    "distinct presence/absence pattern"
+  )
+  ht <- withr::with_pdf(NULL, ComplexHeatmap::draw(ht))
+  ro <- ComplexHeatmap::row_order(ht)
+  # identical patterns are adjacent within the Accessory slice
+  acc <- ro$Accessory
+  keys <- apply(m[acc, , drop = FALSE], 1, paste, collapse = "")
+  expect_equal(length(rle(keys)$values), length(unique(keys)))
+})
+
+test_that("pan style works with row and column annotations", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  pa <- visual_pa("pa_binary.rds")
+  row_ann <- data.frame(row.names = rownames(pa$matrix),
+                        grp = rep(c("x", "y"), length.out = nrow(pa$matrix)))
+  col_ann <- data.frame(row.names = colnames(pa$matrix),
+                        host = rep(c("a", "b"), length.out = ncol(pa$matrix)))
+  ht <- plot_heatmap(pa, style = "pan", row_annotation = row_ann, col_annotation = col_ann)
+  expect_no_error(withr::with_pdf(NULL, ComplexHeatmap::draw(ht)))
+})
+
+test_that("user color overrides the style palette", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  pa <- visual_pa("pa_binary.rds")
+  for (s in c("clean", "pan", "mono")) {
+    ht <- plot_heatmap(pa, style = s, color = c("grey95", "purple"))
+    expect_no_error(withr::with_pdf(NULL, ComplexHeatmap::draw(ht)))
+  }
+})
+
+test_that("arguments in ... override style settings", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  pa <- visual_pa("pa_binary.rds")
+  ht <- plot_heatmap(pa, column_names_rot = 90, name = "Custom",
+                     rect_gp = grid::gpar(col = NA))
+  expect_equal(ht@name, "Custom")
+  expect_equal(ht@column_names_param$rot, 90)
+  expect_no_error(withr::with_pdf(NULL, ComplexHeatmap::draw(ht)))
+})
+
+test_that("styles handle single-row, single-column and constant-score matrices", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  pa <- visual_pa("pa_binary.rds")
+  ps <- visual_pa("pa_score.rds")
+  ps$matrix[!is.na(ps$matrix)] <- 5
+
+  for (s in c("clean", "pan", "mono")) {
+    expect_s4_class(plot_heatmap(pa[1, ], style = s), "Heatmap")
+    expect_s4_class(plot_heatmap(pa[, 1], style = s), "Heatmap")
+    expect_s4_class(plot_heatmap(ps, style = s), "Heatmap")
+  }
+})
+
+test_that("grid lines are dropped above 200 rows", {
+  skip_if_not_installed("ComplexHeatmap")
+
+  set.seed(3)
+  n <- 250
+  m <- matrix(rbinom(n * 3, 1, 0.5), nrow = n,
+              dimnames = list(sprintf("OG%04d", seq_len(n)), paste0("asm", 1:3)))
+  storage.mode(m) <- "integer"
+  pa <- new_pa_matrix(
+    matrix = m,
+    orthogroups = tibble::tibble(orthogroup_id = rownames(m), size = rowSums(m)),
+    assemblies = tibble::tibble(assembly_name = colnames(m), n_orthogroups = colSums(m))
+  )
+  ht <- plot_heatmap(pa)
+  expect_true(is.na(ht@matrix_param$gp$col))
+  ht_small <- plot_heatmap(pa[1:50, ])
+  expect_equal(ht_small@matrix_param$gp$col, "white")
+})
