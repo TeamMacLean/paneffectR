@@ -41,9 +41,11 @@ An UpSetR plot object (can be printed to display).
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+visual_dir <- system.file("testdata", "visual", package = "paneffectR")
+pa <- readRDS(file.path(visual_dir, "pa_binary.rds"))
 plot_upset(pa)
+
 plot_upset(pa, min_size = 2)
+
 plot_upset(pa, order_by = "degree")
-} # }
 ```

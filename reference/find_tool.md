@@ -40,8 +40,9 @@ find_tool(
 
 - conda_env:
 
-  Character. Optional conda environment name (looked up in standard
-  conda envs directory).
+  Character. Optional conda environment name (looked up in the `envs/`
+  directory of the conda/mamba base found via `CONDA_PREFIX`,
+  `MAMBA_ROOT_PREFIX`, `CONDA_EXE`, or common install locations).
 
 - error:
 

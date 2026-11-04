@@ -11,6 +11,7 @@ represent recently evolved virulence factors.
 ## Setup and Data Loading
 
 ``` r
+
 library(paneffectR)
 library(dplyr)
 library(ggplot2)
@@ -20,6 +21,7 @@ For this vignette, we use pre-computed clustering results with synthetic
 data that simulates typical effector analysis:
 
 ``` r
+
 visual_dir <- system.file("testdata", "visual", package = "paneffectR")
 clusters <- readRDS(file.path(visual_dir, "clusters_visual.rds"))
 proteins <- readRDS(file.path(visual_dir, "proteins_visual.rds"))
@@ -31,6 +33,7 @@ clusters
 proteins
 #> -- protein_collection --
 #> 6 assemblies, 172 total proteins
+#> Scores: present
 #> 
 #> # A tibble: 6 × 3
 #>   assembly_name n_proteins has_scores
@@ -66,6 +69,7 @@ Singletons are important because they may represent:
 paneffectR provides dedicated functions for working with singletons:
 
 ``` r
+
 # Get all singletons
 singletons <- get_singletons(clusters)
 singletons
@@ -109,6 +113,7 @@ just annotation artifacts. We can examine their prediction scores to
 assess confidence:
 
 ``` r
+
 # Get all proteins with scores
 all_proteins <- do.call(rbind, lapply(names(proteins$assemblies), function(asm) {
   proteins$assemblies[[asm]]$proteins %>%
@@ -150,6 +155,7 @@ just noise in the data.
 How do singleton scores compare to proteins in orthogroups?
 
 ``` r
+
 # Add clustering status to all proteins
 clustered_proteins <- clusters$orthogroups %>%
   select(protein_id) %>%
@@ -190,6 +196,7 @@ lower-priority.
 Export high-scoring singletons for experimental validation:
 
 ``` r
+
 # High-confidence singleton effectors
 high_score_singletons <- singleton_scores %>%
   filter(custom_score >= 5.0)
@@ -206,6 +213,7 @@ proteins are distributed across assemblies.
 ### Visualizing Pan-Effectorome Structure
 
 ``` r
+
 plot_pan_structure(clusters)
 ```
 
@@ -224,6 +232,7 @@ This shows the composition of the pan-effectorome:
 The thresholds for Rare and Accessory categories are configurable:
 
 ``` r
+
 # Custom thresholds: Rare if in ≤20% of assemblies, Accessory if ≤50%
 plot_pan_structure(clusters, rare_threshold = 0.20, accessory_threshold = 0.50)
 ```
@@ -233,6 +242,7 @@ plot_pan_structure(clusters, rare_threshold = 0.20, accessory_threshold = 0.50)
 How does each assembly contribute to the pan-effectorome?
 
 ``` r
+
 plot_assembly_composition(clusters)
 ```
 
@@ -241,6 +251,7 @@ plot_assembly_composition(clusters)
 Use `position = "fill"` to show proportions instead of counts:
 
 ``` r
+
 plot_assembly_composition(clusters, position = "fill")
 ```
 
@@ -253,6 +264,7 @@ plot_assembly_composition(clusters, position = "fill")
 When building matrices, you can filter to high-confidence effectors:
 
 ``` r
+
 # Build unfiltered matrix first
 pa <- build_pa_matrix(clusters, type = "binary")
 
@@ -276,6 +288,7 @@ cat("After score filter (>=5):", nrow(pa_filtered$matrix), "\n")
 Instead of binary presence/absence, create a matrix with actual scores:
 
 ``` r
+
 pa_score <- build_pa_matrix(
   clusters,
   type = "score",
@@ -298,6 +311,7 @@ pa_score$matrix[1:5, ]
 ### Heatmap
 
 ``` r
+
 ht <- plot_heatmap(
   pa,
   cluster_rows = TRUE,
@@ -315,29 +329,8 @@ ComplexHeatmap::draw(ht)
 Which effector combinations are most common?
 
 ``` r
+
 plot_upset(pa, min_size = 1)
-#> Warning: `aes_string()` was deprecated in ggplot2 3.0.0.
-#> ℹ Please use tidy evaluation idioms with `aes()`.
-#> ℹ See also `vignette("ggplot2-in-packages")` for more information.
-#> ℹ The deprecated feature was likely used in the UpSetR package.
-#>   Please report the issue to the authors.
-#> This warning is displayed once per session.
-#> Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
-#> generated.
-#> Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
-#> ℹ Please use `linewidth` instead.
-#> ℹ The deprecated feature was likely used in the UpSetR package.
-#>   Please report the issue to the authors.
-#> This warning is displayed once per session.
-#> Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
-#> generated.
-#> Warning: The `size` argument of `element_line()` is deprecated as of ggplot2 3.4.0.
-#> ℹ Please use the `linewidth` argument instead.
-#> ℹ The deprecated feature was likely used in the UpSetR package.
-#>   Please report the issue to the authors.
-#> This warning is displayed once per session.
-#> Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
-#> generated.
 ```
 
 ![](effector-analysis_files/figure-html/upset-1.png)
@@ -347,6 +340,7 @@ plot_upset(pa, min_size = 1)
 How similar are effector repertoires between assemblies?
 
 ``` r
+
 plot_dendro(pa, distance_method = "jaccard")
 ```
 
@@ -357,16 +351,18 @@ plot_dendro(pa, distance_method = "jaccard")
 ### Export Matrices
 
 ``` r
+
 # Export presence/absence matrix
 write.csv(as.data.frame(pa), "effector_presence_absence.csv")
 
 # Export orthogroup membership
-write.csv(clusters$orthogroups, "orthogroup_membership.csv", row_names = FALSE)
+write.csv(clusters$orthogroups, "orthogroup_membership.csv", row.names = FALSE)
 ```
 
 ### Export Singletons
 
 ``` r
+
 # All singletons with scores
 write.csv(singleton_scores, "all_singletons_with_scores.csv", row.names = FALSE)
 

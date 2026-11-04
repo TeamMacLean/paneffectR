@@ -41,8 +41,6 @@ Build presence/absence matrices from clustering results.
 
 - [`build_pa_matrix()`](https://TeamMacLean.github.io/paneffectR/reference/build_pa_matrix.md)
   : Build presence/absence matrix from clustering results
-- [`filter_by_score()`](https://TeamMacLean.github.io/paneffectR/reference/filter_by_score.md)
-  : Filter presence/absence matrix by score
 - [`` `[`( ``*`<pa_matrix>`*`)`](https://TeamMacLean.github.io/paneffectR/reference/sub-.pa_matrix.md)
   : Subset a pa_matrix object
 - [`as.data.frame(`*`<pa_matrix>`*`)`](https://TeamMacLean.github.io/paneffectR/reference/as.data.frame.pa_matrix.md)

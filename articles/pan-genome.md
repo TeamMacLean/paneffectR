@@ -30,6 +30,7 @@ analysis.
 ## Setup
 
 ``` r
+
 library(paneffectR)
 library(dplyr)
 #> 
@@ -47,6 +48,7 @@ library(dplyr)
 For pan-genome analysis, you only need FASTA files:
 
 ``` r
+
 # Get path to test data
 testdata_dir <- system.file("testdata", package = "paneffectR")
 
@@ -55,9 +57,12 @@ proteins <- load_proteins(
   fasta_dir = testdata_dir,
   pattern = "*.faa"
 )
+#> ✔ Loaded 3 assemblies (300 proteins) from
+#>   /home/runner/work/_temp/Library/paneffectR/testdata
 proteins
 #> -- protein_collection --
 #> 3 assemblies, 300 total proteins
+#> Scores: none loaded
 #> 
 #> # A tibble: 3 × 3
 #>   assembly_name n_proteins has_scores
@@ -79,6 +84,7 @@ with assembly names.
 paneffectR validates this automatically:
 
 ``` r
+
 # This would fail if IDs weren't unique
 # (our test data already has unique IDs like "assembly1_000001")
 head(proteins$assemblies[[1]]$proteins$protein_id)
@@ -91,6 +97,7 @@ head(proteins$assemblies[[1]]$proteins$protein_id)
 Group proteins from different assemblies into orthogroups:
 
 ``` r
+
 # Cluster using DIAMOND reciprocal best hits
 clusters <- cluster_proteins(proteins, method = "diamond_rbh")
 ```
@@ -98,6 +105,7 @@ clusters <- cluster_proteins(proteins, method = "diamond_rbh")
 For this vignette, we’ll use pre-computed clusters:
 
 ``` r
+
 visual_dir <- system.file("testdata", "visual", package = "paneffectR")
 clusters <- readRDS(file.path(visual_dir, "clusters_visual.rds"))
 clusters
@@ -109,6 +117,7 @@ clusters
 ### Understanding the Results
 
 ``` r
+
 # Orthogroup statistics
 clusters$stats
 #> # A tibble: 1 × 4
@@ -139,6 +148,7 @@ Create a binary matrix showing which orthogroups are in which
 assemblies:
 
 ``` r
+
 pa <- build_pa_matrix(clusters, type = "binary")
 pa
 #> -- pa_matrix (binary) --
@@ -165,6 +175,7 @@ cat("Without singletons:", nrow(pa_no_singletons$matrix), "orthogroups\n")
 Proteins present in all assemblies:
 
 ``` r
+
 n_assemblies <- ncol(pa$matrix)
 presence_count <- rowSums(pa$matrix)
 
@@ -181,6 +192,7 @@ cat("Core percentage:", round(100 * length(core_og) / length(presence_count), 1)
 Proteins present in some but not all assemblies:
 
 ``` r
+
 # Accessory = present in 2 to (n-1) assemblies
 accessory_og <- names(presence_count[presence_count > 1 & presence_count < n_assemblies])
 cat("Accessory orthogroups:", length(accessory_og), "\n")
@@ -194,6 +206,7 @@ cat("Accessory percentage:", round(100 * length(accessory_og) / length(presence_
 Proteins present in only one assembly (including singletons):
 
 ``` r
+
 unique_og <- names(presence_count[presence_count == 1])
 cat("Unique orthogroups:", length(unique_og), "\n")
 #> Unique orthogroups: 22
@@ -204,6 +217,7 @@ cat("Unique percentage:", round(100 * length(unique_og) / length(presence_count)
 ### Pan-Genome Summary
 
 ``` r
+
 pan_summary <- data.frame(
   Category = c("Core", "Accessory", "Unique", "Total"),
   Count = c(length(core_og), length(accessory_og), length(unique_og), length(presence_count)),
@@ -229,6 +243,7 @@ pan_summary
 The heatmap shows presence (colored) and absence (white) patterns:
 
 ``` r
+
 ht <- plot_heatmap(
   pa,
   cluster_rows = TRUE,
@@ -247,30 +262,9 @@ UpSet plots excel at showing intersections - which orthogroups are
 shared between which combinations of assemblies:
 
 ``` r
+
 # Show all intersections with at least 1 orthogroup
 plot_upset(pa, min_size = 1)
-#> Warning: `aes_string()` was deprecated in ggplot2 3.0.0.
-#> ℹ Please use tidy evaluation idioms with `aes()`.
-#> ℹ See also `vignette("ggplot2-in-packages")` for more information.
-#> ℹ The deprecated feature was likely used in the UpSetR package.
-#>   Please report the issue to the authors.
-#> This warning is displayed once per session.
-#> Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
-#> generated.
-#> Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
-#> ℹ Please use `linewidth` instead.
-#> ℹ The deprecated feature was likely used in the UpSetR package.
-#>   Please report the issue to the authors.
-#> This warning is displayed once per session.
-#> Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
-#> generated.
-#> Warning: The `size` argument of `element_line()` is deprecated as of ggplot2 3.4.0.
-#> ℹ Please use the `linewidth` argument instead.
-#> ℹ The deprecated feature was likely used in the UpSetR package.
-#>   Please report the issue to the authors.
-#> This warning is displayed once per session.
-#> Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
-#> generated.
 ```
 
 ![](pan-genome_files/figure-html/upset-1.png)
@@ -284,6 +278,7 @@ many are shared between specific combinations - How many are in the core
 Cluster assemblies by their shared protein content:
 
 ``` r
+
 plot_dendro(pa, distance_method = "jaccard")
 ```
 
@@ -292,6 +287,7 @@ plot_dendro(pa, distance_method = "jaccard")
 Try different distance metrics:
 
 ``` r
+
 # Jaccard: good for presence/absence
 plot_dendro(pa, distance_method = "jaccard") +
   ggplot2::ggtitle("Jaccard Distance")
@@ -306,6 +302,7 @@ plot_dendro(pa, distance_method = "jaccard") +
 Calculate Jaccard similarity between all pairs:
 
 ``` r
+
 # Simple Jaccard calculation
 jaccard <- function(a, b) {
   intersection <- sum(a == 1 & b == 1)
@@ -337,6 +334,7 @@ round(sim_matrix, 2)
 ### Which Assemblies Share the Most?
 
 ``` r
+
 # Find most similar pair (excluding diagonal)
 sim_matrix_upper <- sim_matrix
 diag(sim_matrix_upper) <- 0
@@ -354,6 +352,7 @@ cat("Most similar pair:",
 ### Proteins Unique to One Assembly
 
 ``` r
+
 # Get singletons with assembly information
 singletons_df <- singletons_by_assembly(clusters)
 singletons_df
@@ -384,15 +383,19 @@ singletons_df %>%
 ### Orthogroups Missing from One Assembly
 
 ``` r
-# Which orthogroups are missing from asm_A?
-missing_from_asm_A <- pa$matrix[pa$matrix[, "asm_A"] == 0, , drop = FALSE]
-cat("Orthogroups missing from asm_A:", nrow(missing_from_asm_A), "\n")
-#> Orthogroups missing from asm_A: 37
+
+# Which orthogroups are missing from the first assembly?
+# (derive the name from the matrix so this works with any data set)
+first_asm <- colnames(pa$matrix)[1]
+missing_from_first <- pa$matrix[pa$matrix[, first_asm] == 0, , drop = FALSE]
+cat("Orthogroups missing from", first_asm, ":", nrow(missing_from_first), "\n")
+#> Orthogroups missing from asm_A : 37
 ```
 
 ## Exporting Results
 
 ``` r
+
 # Export presence/absence matrix as CSV
 write.csv(
   as.data.frame(pa),

@@ -13,6 +13,7 @@ the package.
 ## Setup
 
 ``` r
+
 library(paneffectR)
 ```
 
@@ -23,6 +24,7 @@ The main entry point is
 which discovers and loads all FASTA files from a directory:
 
 ``` r
+
 # Get path to test data included with the package
 testdata_dir <- system.file("testdata", package = "paneffectR")
 
@@ -32,9 +34,13 @@ proteins <- load_proteins(
   score_dir = testdata_dir,
   pattern = "*.faa"
 )
+#> ✔ Loaded 3 assemblies (300 proteins) from
+#>   /home/runner/work/_temp/Library/paneffectR/testdata
+#> ℹ Scores: found for 3 of 3 assemblies, matched 300 of 300 proteins
 proteins
 #> -- protein_collection --
 #> 3 assemblies, 300 total proteins
+#> Scores: present
 #> 
 #> # A tibble: 3 × 3
 #>   assembly_name n_proteins has_scores
@@ -57,6 +63,7 @@ Each assembly is stored as a `protein_set`. Access individual assemblies
 by name:
 
 ``` r
+
 # Access one assembly
 ps <- proteins$assemblies[["assembly1"]]
 ps
@@ -84,6 +91,7 @@ sets of proteins that are likely the same gene/function across
 assemblies.
 
 ``` r
+
 # Cluster using DIAMOND reciprocal best hits
 clusters <- cluster_proteins(proteins, method = "diamond_rbh")
 clusters
@@ -96,6 +104,7 @@ included with the package for the visualization examples.
 For this vignette, we’ll load pre-computed results:
 
 ``` r
+
 # Load pre-computed visual test data
 visual_dir <- system.file("testdata", "visual", package = "paneffectR")
 clusters <- readRDS(file.path(visual_dir, "clusters_visual.rds"))
@@ -115,6 +124,7 @@ An orthogroup result contains:
 - **stats**: Summary statistics
 
 ``` r
+
 # See the orthogroup assignments
 head(clusters$orthogroups)
 #> # A tibble: 6 × 3
@@ -153,6 +163,7 @@ Convert the orthogroups into a matrix where:
 - **Values** = presence (1) or absence (0)
 
 ``` r
+
 # Build binary presence/absence matrix
 pa <- build_pa_matrix(clusters, type = "binary")
 pa
@@ -181,6 +192,7 @@ By default, singletons (proteins unique to one assembly) are included as
 their own orthogroups:
 
 ``` r
+
 # Without singletons
 pa_no_single <- build_pa_matrix(clusters, type = "binary", exclude_singletons = TRUE)
 
@@ -198,6 +210,7 @@ cat("Without singletons:", nrow(pa_no_single$matrix), "orthogroups\n")
 The heatmap shows presence/absence patterns across all assemblies:
 
 ``` r
+
 ht <- plot_heatmap(pa)
 ComplexHeatmap::draw(ht)
 ```
@@ -207,6 +220,7 @@ ComplexHeatmap::draw(ht)
 Customize with clustering and colors:
 
 ``` r
+
 ht <- plot_heatmap(
   pa,
   cluster_rows = TRUE,
@@ -224,30 +238,9 @@ ComplexHeatmap::draw(ht)
 UpSet plots show which orthogroups are shared between assemblies:
 
 ``` r
+
 # Show intersections with at least 2 orthogroups
 plot_upset(pa, min_size = 1)
-#> Warning: `aes_string()` was deprecated in ggplot2 3.0.0.
-#> ℹ Please use tidy evaluation idioms with `aes()`.
-#> ℹ See also `vignette("ggplot2-in-packages")` for more information.
-#> ℹ The deprecated feature was likely used in the UpSetR package.
-#>   Please report the issue to the authors.
-#> This warning is displayed once per session.
-#> Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
-#> generated.
-#> Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
-#> ℹ Please use `linewidth` instead.
-#> ℹ The deprecated feature was likely used in the UpSetR package.
-#>   Please report the issue to the authors.
-#> This warning is displayed once per session.
-#> Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
-#> generated.
-#> Warning: The `size` argument of `element_line()` is deprecated as of ggplot2 3.4.0.
-#> ℹ Please use the `linewidth` argument instead.
-#> ℹ The deprecated feature was likely used in the UpSetR package.
-#>   Please report the issue to the authors.
-#> This warning is displayed once per session.
-#> Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
-#> generated.
 ```
 
 ![](getting-started_files/figure-html/upset-1.png)
@@ -257,6 +250,7 @@ plot_upset(pa, min_size = 1)
 Cluster assemblies by their shared orthogroup content:
 
 ``` r
+
 plot_dendro(pa, distance_method = "jaccard")
 ```
 
@@ -272,6 +266,7 @@ can:
 Only include high-confidence effector predictions:
 
 ``` r
+
 # Build matrix with score threshold
 pa_filtered <- build_pa_matrix(
   clusters,
@@ -284,6 +279,7 @@ pa_filtered <- build_pa_matrix(
 ### Visualize Score Distributions
 
 ``` r
+
 # Score distributions across all assemblies
 plot_scores(proteins)
 ```
@@ -291,6 +287,7 @@ plot_scores(proteins)
 ![](getting-started_files/figure-html/scores-1.png)
 
 ``` r
+
 
 # Faceted by assembly with threshold line
 plot_scores(proteins, by_assembly = TRUE, threshold = 5.0)

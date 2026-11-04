@@ -56,9 +56,28 @@ A `pa_matrix` object.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# Pre-computed clustering of the bundled example data
+visual_dir <- system.file("testdata", "visual", package = "paneffectR")
+clusters <- readRDS(file.path(visual_dir, "clusters_visual.rds"))
+proteins <- readRDS(file.path(visual_dir, "proteins_visual.rds"))
+
 pa <- build_pa_matrix(clusters)
-pa <- build_pa_matrix(clusters, score_threshold = 5.0)
-pa <- build_pa_matrix(clusters, exclude_singletons = TRUE)
-} # }
+pa
+#> -- pa_matrix (binary) --
+#> 62 orthogroups x 6 assemblies
+#> Sparsity: 53.8%
+
+# Drop singletons
+build_pa_matrix(clusters, exclude_singletons = TRUE)
+#> -- pa_matrix (binary) --
+#> 50 orthogroups x 6 assemblies
+#> Sparsity: 46.7%
+
+# Keep only orthogroups with at least one high-scoring member
+# (score filtering needs the protein_collection that carries the scores)
+build_pa_matrix(clusters, proteins = proteins, score_threshold = 5.0)
+#> -- pa_matrix (binary) --
+#> 31 orthogroups x 6 assemblies
+#> Sparsity: 32.3%
+#> Threshold: 5
 ```

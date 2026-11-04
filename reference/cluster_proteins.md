@@ -1,7 +1,9 @@
 # Cluster proteins across assemblies
 
 Groups proteins from a protein_collection into orthogroups using
-sequence similarity. Multiple clustering methods are available.
+sequence similarity. Currently the only implemented method is
+`"diamond_rbh"` (DIAMOND reciprocal best hits with best-hit expansion);
+OrthoFinder and MMseqs2 backends are planned.
 
 ## Usage
 
@@ -16,7 +18,10 @@ cluster_proteins(
   threads = NULL,
   tool_path = NULL,
   conda_prefix = NULL,
-  keep_temp = FALSE
+  conda_env = NULL,
+  keep_temp = FALSE,
+  timeout = 3600,
+  quiet = FALSE
 )
 ```
 
@@ -28,8 +33,7 @@ cluster_proteins(
 
 - method:
 
-  Clustering method: "diamond_rbh" (default), "orthofinder", or
-  "mmseqs2"
+  Clustering method. Currently only `"diamond_rbh"`.
 
 - mode:
 
@@ -53,7 +57,7 @@ cluster_proteins(
 
 - tool_path:
 
-  Optional explicit path to the clustering tool binary
+  Optional explicit path to the clustering tool binary. `~` is expanded.
 
 - conda_prefix:
 
@@ -61,9 +65,25 @@ cluster_proteins(
   (e.g., "./this_project_env"). Tool is expected at
   `<prefix>/bin/<tool>`.
 
+- conda_env:
+
+  Optional name of a conda/mamba environment (e.g. `"tools"`), looked up
+  under the conda base's `envs/` directory. See
+  [`find_tool()`](https://TeamMacLean.github.io/paneffectR/reference/find_tool.md).
+
 - keep_temp:
 
-  Keep temporary files for debugging (default FALSE)
+  Keep temporary files for debugging (default FALSE). The directory is
+  reported in a message.
+
+- timeout:
+
+  Numeric. Maximum seconds allowed for each external tool step (default
+  3600). Prevents a misbehaving tool from hanging the R session.
+
+- quiet:
+
+  Logical. If `TRUE`, suppress progress messages (default FALSE).
 
 ## Value
 
@@ -100,5 +120,8 @@ result <- cluster_proteins(
   proteins,
   conda_prefix = "./this_project_env"
 )
+
+# Use a named conda environment
+result <- cluster_proteins(proteins, conda_env = "tools")
 } # }
 ```

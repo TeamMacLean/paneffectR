@@ -17,13 +17,14 @@
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/calculate_assembly_distance.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/calculate_distance.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/categorize_orthogroups.html</loc></url>
+<url><loc>https://TeamMacLean.github.io/paneffectR/reference/check_diamond_result.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/check_tool_installed.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/cluster_proteins.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/compute_rbh.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/dendro_to_data.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/expand_clusters_with_best_hits.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/extract_scores.html</loc></url>
-<url><loc>https://TeamMacLean.github.io/paneffectR/reference/filter_by_score.html</loc></url>
+<url><loc>https://TeamMacLean.github.io/paneffectR/reference/fasta_assembly_name.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/find_conda_base.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/find_tool.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/get_singletons.html</loc></url>
@@ -41,10 +42,12 @@
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/new_pa_matrix.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/new_protein_collection.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/new_protein_set.html</loc></url>
+<url><loc>https://TeamMacLean.github.io/paneffectR/reference/nucleotide_fraction.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/paneffectR-classes.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/paneffectR-clustering.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/paneffectR-package.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/parse_diamond_hits.html</loc></url>
+<url><loc>https://TeamMacLean.github.io/paneffectR/reference/pattern_row_order.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/plot-dendro.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/plot-heatmap.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/plot-pan.html</loc></url>
@@ -62,6 +65,7 @@
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/sub-.pa_matrix.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/utils.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/validate_annotation.html</loc></url>
+<url><loc>https://TeamMacLean.github.io/paneffectR/reference/validate_collection_for_clustering.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/write_combined_fasta.html</loc></url>
 </urlset>
 

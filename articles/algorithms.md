@@ -8,6 +8,7 @@ Instead of describing algorithms conceptually, we show exactly what
 happens at each stage with actual sequence data.
 
 ``` r
+
 library(paneffectR)
 library(dplyr)
 library(tidyr)
@@ -20,6 +21,7 @@ We use 16 well-characterized proteins from three fungal species with
 known orthology relationships:
 
 ``` r
+
 # Load the protein collection
 clustering_dir <- system.file("testdata", "clustering", package = "paneffectR")
 proteins <- readRDS(file.path(clustering_dir, "known_orthologs.rds"))
@@ -31,6 +33,7 @@ expected <- read.csv(file.path(clustering_dir, "expected_orthogroups.csv"))
 proteins
 #> -- protein_collection --
 #> 3 assemblies, 16 total proteins
+#> Scores: none loaded
 #> 
 #> # A tibble: 3 × 3
 #>   assembly_name n_proteins has_scores
@@ -50,31 +53,32 @@ The dataset includes:
   cerevisiae)
 
 ``` r
+
 expected |>
   select(protein_id, assembly, expected_og, protein_name) |>
   knitr::kable(caption = "Ground truth: expected orthogroup assignments")
 ```
 
-| protein_id  | assembly | expected_og   | protein_name                               |
-|:------------|:---------|:--------------|:-------------------------------------------|
-| scer_ACT1   | scer     | OG_actin      | Actin                                      |
-| spom_act1   | spom     | OG_actin      | Actin                                      |
-| ncra_act    | ncra     | OG_actin      | Actin                                      |
-| scer_TDH1   | scer     | OG_gapdh      | Glyceraldehyde-3-phosphate dehydrogenase 1 |
-| spom_tdh1   | spom     | OG_gapdh      | Glyceraldehyde-3-phosphate dehydrogenase 1 |
-| ncra_gpd1   | ncra     | OG_gapdh      | Glyceraldehyde-3-phosphate dehydrogenase   |
-| scer_HHT1   | scer     | OG_histone_h3 | Histone H3                                 |
-| spom_hht1   | spom     | OG_histone_h3 | Histone H3.1/H3.2                          |
-| ncra_hh3    | ncra     | OG_histone_h3 | Histone H3                                 |
-| scer_TEF1   | scer     | OG_ef1a       | Elongation factor 1-alpha                  |
-| spom_tef101 | spom     | OG_ef1a       | Elongation factor 1-alpha-A                |
-| ncra_tef1   | ncra     | OG_ef1a       | Elongation factor 1-alpha                  |
-| scer_CYC1   | scer     | OG_cyc        | Cytochrome c isoform 1                     |
-| spom_cyc1   | spom     | OG_cyc        | Cytochrome c                               |
-| ncra_cyc1   | ncra     | OG_cyc        | Cytochrome c                               |
-| scer_MFA1   | scer     | singleton     | Mating factor alpha-1                      |
+| protein_id | assembly | expected_og | protein_name |
+|:---|:---|:---|:---|
+| scer_ACT1 | scer | OG_actin | Actin |
+| spom_act1 | spom | OG_actin | Actin |
+| ncra_act | ncra | OG_actin | Actin |
+| scer_TDH1 | scer | OG_gapdh | Glyceraldehyde-3-phosphate dehydrogenase 1 |
+| spom_tdh1 | spom | OG_gapdh | Glyceraldehyde-3-phosphate dehydrogenase 1 |
+| ncra_gpd1 | ncra | OG_gapdh | Glyceraldehyde-3-phosphate dehydrogenase |
+| scer_HHT1 | scer | OG_histone_h3 | Histone H3 |
+| spom_hht1 | spom | OG_histone_h3 | Histone H3.1/H3.2 |
+| ncra_hh3 | ncra | OG_histone_h3 | Histone H3 |
+| scer_TEF1 | scer | OG_ef1a | Elongation factor 1-alpha |
+| spom_tef101 | spom | OG_ef1a | Elongation factor 1-alpha-A |
+| ncra_tef1 | ncra | OG_ef1a | Elongation factor 1-alpha |
+| scer_CYC1 | scer | OG_cyc | Cytochrome c isoform 1 |
+| spom_cyc1 | spom | OG_cyc | Cytochrome c |
+| ncra_cyc1 | ncra | OG_cyc | Cytochrome c |
+| scer_MFA1 | scer | singleton | Mating factor alpha-1 |
 
-Ground truth: expected orthogroup assignments
+Ground truth: expected orthogroup assignments {.table}
 
 ## Step 1: All-vs-All Alignment
 
@@ -90,6 +94,7 @@ diamond blastp -d db -q proteins.faa -o hits.tsv \
 ```
 
 ``` r
+
 # Load pre-computed DIAMOND results
 diamond_hits <- readRDS(file.path(clustering_dir, "diamond_hits.rds"))
 
@@ -113,7 +118,7 @@ head(diamond_hits, 10) |>
 | ncra_cyc1 | spom_cyc1   |   70.4 |    108 |  108 |      0 |      175 | 100.00 |
 | ncra_cyc1 | scer_CYC1   |   69.2 |    104 |  108 |      0 |      166 |  96.30 |
 
-DIAMOND output with computed coverage
+DIAMOND output with computed coverage {.table}
 
 ### Understanding the columns
 
@@ -131,8 +136,8 @@ DIAMOND output with computed coverage
 
 **Computed by paneffectR** (1 column):
 
-| Column | Formula                 | Purpose                                       |
-|--------|-------------------------|-----------------------------------------------|
+| Column | Formula | Purpose |
+|----|----|----|
 | `qcov` | `(length / qlen) * 100` | Query coverage percentage, used for filtering |
 
 Note: This differs from the default BLAST tabular format, which includes
@@ -143,6 +148,7 @@ for clustering.
 ### Visualizing hit scores
 
 ``` r
+
 # Get best hit between each pair
 best_hits <- diamond_hits |>
   group_by(qseqid, sseqid) |>
@@ -195,6 +201,7 @@ significant matches:
 | `evalue`       | 1e-5    | Exclude statistically insignificant matches |
 
 ``` r
+
 # Load filtered hits
 hits_filtered <- readRDS(file.path(clustering_dir, "diamond_hits_filtered.rds"))
 
@@ -219,6 +226,7 @@ best match. This is a stringent criterion for orthology:
 From our 30 filtered hits, paneffectR identified 5 RBH pairs:
 
 ``` r
+
 rbh_pairs <- readRDS(file.path(clustering_dir, "rbh_pairs.rds"))
 
 rbh_pairs |>
@@ -233,7 +241,7 @@ rbh_pairs |>
 | scer_TDH1 | spom_tdh1   |
 | scer_TEF1 | spom_tef101 |
 
-Reciprocal best hit pairs identified
+Reciprocal best hit pairs identified {.table}
 
 ### Why not all orthologs form RBH pairs
 
@@ -246,6 +254,7 @@ orthologs.
 **Step 1:** Find `scer_ACT1`’s best hit.
 
 ``` r
+
 scer_act1_hits <- hits_filtered |>
   filter(qseqid == "scer_ACT1") |>
   arrange(desc(bitscore))
@@ -265,6 +274,7 @@ The best hit (highest bitscore) is `ncra_act` with score 708.
 **Step 2:** Check the reverse - what is `ncra_act`’s best hit?
 
 ``` r
+
 ncra_act_hits <- hits_filtered |>
   filter(qseqid == "ncra_act") |>
   arrange(desc(bitscore))
@@ -302,6 +312,7 @@ Notice that RBH pairs only connect **two species at a time** - this is
 the fundamental limitation that the expansion phase addresses.
 
 ``` r
+
 # Get protein positions for network layout
 protein_positions <- expected |>
   filter(expected_og != "singleton") |>
@@ -361,6 +372,7 @@ components** in the RBH graph: proteins linked through any chain of RBH
 pairs form one group.
 
 ``` r
+
 orthogroups_seed <- readRDS(file.path(clustering_dir, "orthogroups_seed.rds"))
 
 orthogroups_seed |>
@@ -381,7 +393,7 @@ orthogroups_seed |>
 | OG0005        | scer_TEF1   |
 | OG0005        | spom_tef101 |
 
-Seed orthogroups from RBH connected components
+Seed orthogroups from RBH connected components {.table}
 
 After the seed phase:
 
@@ -389,6 +401,7 @@ After the seed phase:
 - **6 singletons**: proteins not in any RBH pair
 
 ``` r
+
 seed_summary <- orthogroups_seed |>
   group_by(orthogroup_id) |>
   summarize(n_proteins = n(), proteins = paste(protein_id, collapse = ", "))
@@ -405,9 +418,10 @@ seed_summary |>
 | OG0004        |          2 | scer_TDH1, spom_tdh1   |
 | OG0005        |          2 | scer_TEF1, spom_tef101 |
 
-Seed orthogroup composition
+Seed orthogroup composition {.table}
 
 ``` r
+
 
 # List singletons
 all_proteins_list <- unlist(lapply(proteins$assemblies, function(ps) ps$proteins$protein_id))
@@ -437,6 +451,7 @@ First, let’s see the actual DIAMOND output rows that support the 5 RBH
 pairs. For each RBH pair, both directions must be best hits:
 
 ``` r
+
 # Get the DIAMOND hits that form RBH pairs
 # For each RBH pair, show both directions from the original DIAMOND output
 rbh_evidence <- rbh_pairs |>
@@ -481,7 +496,7 @@ rbh_hits |>
 | spom_tdh1   | scer_TDH1   |       70.7 |      470 |
 | spom_tef101 | scer_TEF1   |       86.7 |      808 |
 
-DIAMOND hits for RBH pairs (both directions)
+DIAMOND hits for RBH pairs (both directions) {.table}
 
 Each protein in an RBH pair has the other as its top hit (highest
 bitscore).
@@ -492,6 +507,7 @@ Now let’s see the DIAMOND evidence for expansion. Each singleton’s best
 hit must be in an existing cluster:
 
 ``` r
+
 expansion_trace <- readRDS(file.path(clustering_dir, "expansion_trace.rds"))
 
 # For each singleton, show its DIAMOND hits (best hit first)
@@ -533,12 +549,13 @@ singleton_hits |>
 | spom_hht1 | ncra_hh3    |       92.6 |      235 | Yes             |
 | spom_hht1 | scer_HHT1   |       92.6 |      232 | Yes             |
 
-DIAMOND hits from singletons (top 2 per singleton)
+DIAMOND hits from singletons (top 2 per singleton) {.table}
 
 For each singleton, the best hit (highest bitscore) is already in a seed
 cluster, so the singleton joins that cluster.
 
 ``` r
+
 # Summarize the joins
 expansion_trace |>
   select(singleton, best_hit, best_hit_bitscore, target_cluster) |>
@@ -557,7 +574,7 @@ expansion_trace |>
 | scer_CYC1 | ncra_cyc1   |      165 | OG0002        |
 | spom_hht1 | ncra_hh3    |      235 | OG0003        |
 
-Expansion decisions: singleton joins cluster via best hit
+Expansion decisions: singleton joins cluster via best hit {.table}
 
 ### Visualizing the clustering network
 
@@ -566,6 +583,7 @@ thickness and labels show bitscores from the DIAMOND output. Blue edges
 are RBH pairs (seeds); orange edges show expansion connections.
 
 ``` r
+
 library(igraph)
 
 # Build edges from RBH pairs with their DIAMOND scores
@@ -697,6 +715,7 @@ foundation.
 In iteration 1, all 5 “missing” orthologs found their way home:
 
 ``` r
+
 # Show before and after with expected orthogroup names
 orthogroups_expanded <- readRDS(file.path(clustering_dir, "orthogroups_expanded.rds"))
 
@@ -726,6 +745,7 @@ orthogroups_seed |>
 
 ``` r
 
+
 cat("\n=== After Expansion ===\n")
 #> 
 #> === After Expansion ===
@@ -750,6 +770,7 @@ orthogroups_expanded |>
 
 ``` r
 
+
 # Check singleton
 final_singletons <- setdiff(all_proteins_list, orthogroups_expanded$protein_id)
 cat("\nFinal singleton:", final_singletons, "\n")
@@ -765,6 +786,7 @@ All 5 protein families now have their complete set of 3 orthologs, and
 What happens with stricter thresholds? Let’s compare:
 
 ``` r
+
 # Load strict parameter results
 hits_strict <- readRDS(file.path(clustering_dir, "diamond_hits_strict.rds"))
 orthogroups_strict <- readRDS(file.path(clustering_dir, "orthogroups_strict.rds"))
@@ -792,6 +814,7 @@ cat("  Proteins in orthogroups:", nrow(orthogroups_strict), "\n")
 ### Which proteins are affected?
 
 ``` r
+
 # Find proteins that got excluded
 proteins_strict <- orthogroups_strict$protein_id
 proteins_default <- orthogroups_expanded$protein_id
@@ -812,6 +835,7 @@ expected |>
 
 ``` r
 
+
 # Show the excluded hits
 hits_filtered |>
   filter(!qseqid %in% proteins_strict | !sseqid %in% proteins_strict) |>
@@ -828,7 +852,7 @@ hits_filtered |>
 | scer_TDH1 | ncra_gpd1 |   63.7 |      441 |
 | spom_tdh1 | ncra_gpd1 |   69.1 |      461 |
 
-Hits excluded by 70% identity threshold
+Hits excluded by 70% identity threshold {.table}
 
 The GAPDH and cytochrome c families have cross-species identities around
 63-69%, below the strict 70% threshold. These proteins become
@@ -847,9 +871,13 @@ visualizations like dendrograms.
 The [Jaccard index](https://en.wikipedia.org/wiki/Jaccard_index)
 measures similarity as the size of the intersection divided by the size
 of the union. The distance is 1 minus this similarity, ignoring shared
-absences: $$d_{Jaccard}(A,B) = 1 - \frac{|A \cap B|}{|A \cup B|}$$
+absences:
+``` math
+d_{Jaccard}(A, B) = 1 - \frac{|A \cap B|}{|A \cup B|}
+```
 
 ``` r
+
 # Load example data from visual testdata
 visual_dir <- system.file("testdata", "visual", package = "paneffectR")
 pa <- readRDS(file.path(visual_dir, "pa_binary.rds"))
@@ -886,6 +914,7 @@ After computing distances, assemblies are clustered hierarchically:
 | `ward.D2`  | Creates distinct, equal-sized clusters              |
 
 ``` r
+
 # Compare methods
 plot_dendro(pa, cluster_method = "complete")
 plot_dendro(pa, cluster_method = "average")
@@ -902,6 +931,7 @@ represent:
 3.  **Artifacts**: Mis-predicted ORFs, fragmented assemblies
 
 ``` r
+
 # Using the visual test data
 visual_dir <- system.file("testdata", "visual", package = "paneffectR")
 clusters <- readRDS(file.path(visual_dir, "clusters_visual.rds"))
@@ -931,6 +961,7 @@ only DIAMOND RBH is implemented, but the interface accepts a `method`
 parameter for future expansion:
 
 ``` r
+
 cluster_proteins(proteins, method = "diamond_rbh")  # Current default
 cluster_proteins(proteins, method = "orthofinder")  # Planned
 cluster_proteins(proteins, method = "mmseqs2")      # Planned

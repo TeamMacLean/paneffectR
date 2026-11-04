@@ -35,3 +35,18 @@ new_protein_set(
 ## Value
 
 A `protein_set` S3 object.
+
+## Examples
+
+``` r
+ps <- new_protein_set(
+  assembly_name = "isolate_A",
+  proteins = tibble::tibble(
+    protein_id = c("A_001", "A_002"),
+    sequence = c("MKVLAAGIV", "MSTNPKPQR")
+  )
+)
+ps
+#> -- protein_set: isolate_A --
+#> 2 proteins
+```

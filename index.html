@@ -12,8 +12,8 @@
 <link rel="icon" sizes="any" href="favicon.ico">
 <link rel="manifest" href="site.webmanifest">
 <script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="paneffectR">
 <meta name="description" content="Comparative genomics of effector proteins across multiple genome assemblies">
@@ -28,7 +28,7 @@
 
     <a class="navbar-brand me-2" href="index.html">paneffectR</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -99,10 +99,16 @@
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"BiocManager"</span><span class="op">)</span></span>
 <span><span class="fu">BiocManager</span><span class="fu">::</span><span class="fu"><a href="https://bioconductor.github.io/BiocManager/reference/install.html" class="external-link">install</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ComplexHeatmap"</span>, <span class="st">"Biostrings"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p>Then install paneffectR from GitHub:</p>
+<p>Then install paneffectR from GitHub with either <code>pak</code> or <code>remotes</code>:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># install.packages("devtools")</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"TeamMacLean/paneffectR"</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="co"># install.packages("pak")</span></span>
+<span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pak.html" class="external-link">pak</a></span><span class="op">(</span><span class="st">"TeamMacLean/paneffectR"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># or</span></span>
+<span><span class="co"># install.packages("remotes")</span></span>
+<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"TeamMacLean/paneffectR"</span><span class="op">)</span></span></code></pre></div>
+<p>(<code>devtools::install_github()</code> is deprecated in devtools &gt;= 2.5 and fails unless <code>remotes</code> is also installed.) The BiocManager step above is optional, since <code>remotes</code>/<code>pak</code> can resolve the Bioconductor dependencies themselves, but it is faster and avoids building them from source.</p>
+<p>Vignettes are not built by a GitHub install; read them on the <a href="https://TeamMacLean.github.io/paneffectR/articles/index.html">documentation site</a> or install with <code>remotes::install_github("TeamMacLean/paneffectR", build_vignettes = TRUE)</code>.</p>
 </div>
 <div class="section level3">
 <h3 id="external-dependencies">External Dependencies<a class="anchor" aria-label="anchor" href="#external-dependencies"></a>
@@ -118,6 +124,8 @@
 <li>
 <strong>Conda/mamba prefix</strong> - Pass <code>conda_prefix = "./my_env"</code> for project-local environments</li>
 <li>
+<strong>Conda/mamba environment name</strong> - Pass <code>conda_env = "tools"</code> for a named environment</li>
+<li>
 <strong>System PATH</strong> - Falls back to <code>Sys.which("diamond")</code>
 </li>
 </ol>
@@ -129,11 +137,24 @@
 <span><span class="co"># Project-local mamba environment</span></span>
 <span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span>, conda_prefix <span class="op">=</span> <span class="st">"./this_project_env"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Explicit path</span></span>
-<span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span>, tool_path <span class="op">=</span> <span class="st">"/opt/diamond/bin/diamond"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Named mamba environment</span></span>
+<span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span>, conda_env <span class="op">=</span> <span class="st">"tools"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Explicit path ("~" is expanded)</span></span>
+<span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span>, tool_path <span class="op">=</span> <span class="st">"~/mamba/envs/tools/bin/diamond"</span><span class="op">)</span></span></code></pre></div>
 <p>To create a project-local environment:</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="ex">mamba</span> create <span class="at">-p</span> ./this_project_env <span class="at">-c</span> bioconda diamond</span></code></pre></div>
 </div>
+</div>
+<div class="section level2">
+<h2 id="input-data">Input Data<a class="anchor" aria-label="anchor" href="#input-data"></a>
+</h2>
+<ul>
+<li>
+<strong>FASTA files</strong>: one protein (amino acid) FASTA per assembly, named <code>&lt;assembly&gt;.faa</code> (gzipped <code>.faa.gz</code> also works). Headers like <code>&gt;XP_003708685.1 cytochrome P450 [Pyricularia oryzae]</code> are fine: the ID is the first token and the rest is kept as a <code>description</code>. IDs must be unique across all assemblies. Nucleotide files are rejected.</li>
+<li>
+<strong>Score files</strong> (optional): <code>&lt;assembly&gt;_scored.csv</code> with at least <code>protein_id</code> and <code>custom_score</code> columns, as written by omnieff. See <code><a href="reference/load_proteins.html">?load_proteins</a></code> for the full format.</li>
+</ul>
 </div>
 <div class="section level2">
 <h2 id="quick-start">Quick Start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
@@ -151,7 +172,7 @@
 <span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span>, method <span class="op">=</span> <span class="st">"diamond_rbh"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Build presence/absence matrix (filter to high-scoring effectors)</span></span>
-<span><span class="va">pa</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/build_pa_matrix.html">build_pa_matrix</a></span><span class="op">(</span><span class="va">clusters</span>, score_threshold <span class="op">=</span> <span class="fl">5.0</span><span class="op">)</span></span>
+<span><span class="va">pa</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/build_pa_matrix.html">build_pa_matrix</a></span><span class="op">(</span><span class="va">clusters</span>, proteins <span class="op">=</span> <span class="va">proteins</span>, score_threshold <span class="op">=</span> <span class="fl">5.0</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Visualize</span></span>
 <span><span class="va">ht</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/plot_heatmap.html">plot_heatmap</a></span><span class="op">(</span><span class="va">pa</span><span class="op">)</span></span>
@@ -175,7 +196,7 @@
 <span></span>
 <span><span class="co"># Cluster and build matrix with score threshold</span></span>
 <span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span><span class="op">)</span></span>
-<span><span class="va">pa</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/build_pa_matrix.html">build_pa_matrix</a></span><span class="op">(</span><span class="va">clusters</span>, score_threshold <span class="op">=</span> <span class="fl">5.0</span><span class="op">)</span></span>
+<span><span class="va">pa</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/build_pa_matrix.html">build_pa_matrix</a></span><span class="op">(</span><span class="va">clusters</span>, proteins <span class="op">=</span> <span class="va">proteins</span>, score_threshold <span class="op">=</span> <span class="fl">5.0</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Visualize effector repertoires</span></span>
 <span><span class="fu"><a href="reference/plot_heatmap.html">plot_heatmap</a></span><span class="op">(</span><span class="va">pa</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">ComplexHeatmap</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/ComplexHeatmap/man/draw-dispatch.html" class="external-link">draw</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
@@ -279,7 +300,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

@@ -14,7 +14,11 @@ run_diamond_rbh(
   threads = NULL,
   mode = "fast",
   tool_path = NULL,
-  keep_temp = FALSE
+  conda_prefix = NULL,
+  conda_env = NULL,
+  keep_temp = FALSE,
+  timeout = 3600,
+  quiet = FALSE
 )
 ```
 
@@ -48,9 +52,25 @@ run_diamond_rbh(
 
   Optional explicit path to diamond binary
 
+- conda_prefix:
+
+  Optional path to a conda/mamba environment
+
+- conda_env:
+
+  Optional name of a conda/mamba environment
+
 - keep_temp:
 
   Keep temporary files for debugging (default FALSE)
+
+- timeout:
+
+  Seconds to allow each DIAMOND step before aborting
+
+- quiet:
+
+  Suppress progress messages (default FALSE)
 
 ## Value
 
