@@ -15,3 +15,8 @@ A tibble with columns: assembly, old_name, new_name, protein_number.
 \description{
 Parses a name mapping CSV that maps original protein IDs to standardized names.
 }
+\examples{
+csv <- system.file("testdata", "assembly1_name_mapping.csv", package = "paneffectR")
+mapping <- load_name_mapping(csv)
+head(mapping)
+}

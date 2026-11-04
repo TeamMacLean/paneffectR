@@ -18,6 +18,16 @@ NULL
 #'
 #' @return A `protein_set` S3 object.
 #' @export
+#'
+#' @examples
+#' ps <- new_protein_set(
+#'   assembly_name = "isolate_A",
+#'   proteins = tibble::tibble(
+#'     protein_id = c("A_001", "A_002"),
+#'     sequence = c("MKVLAAGIV", "MSTNPKPQR")
+#'   )
+#' )
+#' ps
 new_protein_set <- function(assembly_name,
                             proteins,
                             metadata = list(),
@@ -40,7 +50,20 @@ new_protein_set <- function(assembly_name,
 
   # Validate protein_id uniqueness
   if (anyDuplicated(proteins$protein_id)) {
-    cli::cli_abort("Duplicate protein IDs found in {.arg proteins}")
+    dups <- unique(proteins$protein_id[duplicated(proteins$protein_id)])
+    cli::cli_abort(c(
+      "Duplicate protein IDs in assembly {.val {assembly_name}}: {.val {utils::head(dups, 5)}}",
+      "i" = "Protein IDs are the first whitespace-delimited token of each FASTA header and must be unique."
+    ))
+  }
+
+  # protein_id must not contain whitespace: DIAMOND truncates IDs at whitespace
+  if (any(grepl("\\s", proteins$protein_id))) {
+    bad <- proteins$protein_id[grepl("\\s", proteins$protein_id)]
+    cli::cli_abort(c(
+      "Protein IDs in assembly {.val {assembly_name}} contain whitespace: {.val {utils::head(bad, 3)}}",
+      "i" = "Use the first token of the FASTA header as the ID; {.fn load_fasta} does this automatically."
+    ))
   }
 
   # Validate metadata and source_files are lists
@@ -88,6 +111,14 @@ print.protein_set <- function(x, ...) {
 #'
 #' @return A `protein_collection` S3 object.
 #' @export
+#'
+#' @examples
+#' ps_a <- new_protein_set("isolate_A",
+#'   tibble::tibble(protein_id = "A_001", sequence = "MKVLAAGIV"))
+#' ps_b <- new_protein_set("isolate_B",
+#'   tibble::tibble(protein_id = "B_001", sequence = "MKVLAAGLV"))
+#' pc <- new_protein_collection(list(ps_a, ps_b))
+#' pc
 new_protein_collection <- function(assemblies) {
   # Validate input is a non-empty list
   if (!is.list(assemblies) || length(assemblies) == 0) {
@@ -143,10 +174,19 @@ print.protein_collection <- function(x, ...) {
   total_proteins <- sum(x$summary$n_proteins)
   n_asm <- x$n_assemblies
 
+  n_scored <- sum(x$summary$has_scores)
+
   cat("-- protein_collection --\n")
   cat(n_asm, " assembl", if (n_asm == 1) "y" else "ies",
       ", ", total_proteins, " total protein",
       if (total_proteins != 1) "s", "\n", sep = "")
+  if (n_scored == 0) {
+    cat("Scores: none loaded\n")
+  } else if (n_scored < n_asm) {
+    cat("Scores: present for ", n_scored, " of ", n_asm, " assemblies\n", sep = "")
+  } else {
+    cat("Scores: present\n")
+  }
   cat("\n")
 
   # Print summary table
@@ -169,6 +209,16 @@ print.protein_collection <- function(x, ...) {
 #'
 #' @return An `orthogroup_result` S3 object.
 #' @export
+#'
+#' @examples
+#' og <- tibble::tibble(
+#'   orthogroup_id = c("OG0001", "OG0001", "OG0002", "OG0002"),
+#'   assembly = c("isolate_A", "isolate_B", "isolate_A", "isolate_B"),
+#'   protein_id = c("A_001", "B_001", "A_002", "B_002")
+#' )
+#' singles <- tibble::tibble(assembly = "isolate_A", protein_id = "A_003")
+#' result <- new_orthogroup_result(og, method = "manual", singletons = singles)
+#' result
 new_orthogroup_result <- function(orthogroups,
                                   method,
                                   parameters = list(),
@@ -266,6 +316,16 @@ print.orthogroup_result <- function(x, ...) {
 #'
 #' @return A `pa_matrix` S3 object.
 #' @export
+#'
+#' @examples
+#' m <- matrix(c(1L, 1L, 1L, 0L), nrow = 2,
+#'   dimnames = list(c("OG0001", "OG0002"), c("isolate_A", "isolate_B")))
+#' pa <- new_pa_matrix(
+#'   matrix = m,
+#'   orthogroups = tibble::tibble(orthogroup_id = rownames(m), size = c(2L, 1L)),
+#'   assemblies = tibble::tibble(assembly_name = colnames(m), n_orthogroups = c(2L, 1L))
+#' )
+#' pa
 new_pa_matrix <- function(matrix,
                           orthogroups,
                           assemblies,

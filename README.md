@@ -33,12 +33,25 @@ install.packages("BiocManager")
 BiocManager::install(c("ComplexHeatmap", "Biostrings"))
 ```
 
-Then install paneffectR from GitHub:
+Then install paneffectR from GitHub with either `pak` or `remotes`:
 
 ```r
-# install.packages("devtools")
-devtools::install_github("TeamMacLean/paneffectR")
+# install.packages("pak")
+pak::pak("TeamMacLean/paneffectR")
+
+# or
+# install.packages("remotes")
+remotes::install_github("TeamMacLean/paneffectR")
 ```
+
+(`devtools::install_github()` is deprecated in devtools >= 2.5 and fails
+unless `remotes` is also installed.) The BiocManager step above is optional,
+since `remotes`/`pak` can resolve the Bioconductor dependencies themselves, but
+it is faster and avoids building them from source.
+
+Vignettes are not built by a GitHub install; read them on the
+[documentation site](https://TeamMacLean.github.io/paneffectR/articles/index.html)
+or install with `remotes::install_github("TeamMacLean/paneffectR", build_vignettes = TRUE)`.
 
 ### External Dependencies
 
@@ -54,7 +67,8 @@ The package searches for DIAMOND in this order:
 
 1. **Explicit path** - Pass `tool_path = "/path/to/diamond"` to `cluster_proteins()`
 2. **Conda/mamba prefix** - Pass `conda_prefix = "./my_env"` for project-local environments
-3. **System PATH** - Falls back to `Sys.which("diamond")`
+3. **Conda/mamba environment name** - Pass `conda_env = "tools"` for a named environment
+4. **System PATH** - Falls back to `Sys.which("diamond")`
 
 This flexibility supports various installation scenarios:
 
@@ -65,8 +79,11 @@ clusters <- cluster_proteins(proteins)
 # Project-local mamba environment
 clusters <- cluster_proteins(proteins, conda_prefix = "./this_project_env")
 
-# Explicit path
-clusters <- cluster_proteins(proteins, tool_path = "/opt/diamond/bin/diamond")
+# Named mamba environment
+clusters <- cluster_proteins(proteins, conda_env = "tools")
+
+# Explicit path ("~" is expanded)
+clusters <- cluster_proteins(proteins, tool_path = "~/mamba/envs/tools/bin/diamond")
 ```
 
 To create a project-local environment:
@@ -74,6 +91,17 @@ To create a project-local environment:
 ```bash
 mamba create -p ./this_project_env -c bioconda diamond
 ```
+
+## Input Data
+
+- **FASTA files**: one protein (amino acid) FASTA per assembly, named
+  `<assembly>.faa` (gzipped `.faa.gz` also works). Headers like
+  `>XP_003708685.1 cytochrome P450 [Pyricularia oryzae]` are fine: the ID is
+  the first token and the rest is kept as a `description`. IDs must be unique
+  across all assemblies. Nucleotide files are rejected.
+- **Score files** (optional): `<assembly>_scored.csv` with at least
+  `protein_id` and `custom_score` columns, as written by omnieff. See
+  `?load_proteins` for the full format.
 
 ## Quick Start
 
@@ -90,7 +118,7 @@ proteins <- load_proteins(
 clusters <- cluster_proteins(proteins, method = "diamond_rbh")
 
 # Build presence/absence matrix (filter to high-scoring effectors)
-pa <- build_pa_matrix(clusters, score_threshold = 5.0)
+pa <- build_pa_matrix(clusters, proteins = proteins, score_threshold = 5.0)
 
 # Visualize
 ht <- plot_heatmap(pa)
@@ -114,7 +142,7 @@ proteins <- load_proteins(
 
 # Cluster and build matrix with score threshold
 clusters <- cluster_proteins(proteins)
-pa <- build_pa_matrix(clusters, score_threshold = 5.0)
+pa <- build_pa_matrix(clusters, proteins = proteins, score_threshold = 5.0)
 
 # Visualize effector repertoires
 plot_heatmap(pa) |> ComplexHeatmap::draw()

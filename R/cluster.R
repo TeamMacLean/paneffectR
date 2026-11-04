@@ -340,7 +340,11 @@ parse_diamond_hits <- function(path, min_identity, min_coverage, evalue) {
 #' @param threads Number of threads (default: auto-detect)
 #' @param mode "fast" or "thorough" (default "fast")
 #' @param tool_path Optional explicit path to diamond binary
+#' @param conda_prefix Optional path to a conda/mamba environment
+#' @param conda_env Optional name of a conda/mamba environment
 #' @param keep_temp Keep temporary files for debugging (default FALSE)
+#' @param timeout Seconds to allow each DIAMOND step before aborting
+#' @param quiet Suppress progress messages (default FALSE)
 #'
 #' @return An orthogroup_result object
 #' @keywords internal
@@ -351,11 +355,17 @@ run_diamond_rbh <- function(proteins,
                             threads = NULL,
                             mode = "fast",
                             tool_path = NULL,
-                            keep_temp = FALSE) {
+                            conda_prefix = NULL,
+                            conda_env = NULL,
+                            keep_temp = FALSE,
+                            timeout = 3600,
+                            quiet = FALSE) {
   # Find DIAMOND binary
   diamond_path <- find_tool(
     "diamond",
     tool_path = tool_path,
+    conda_prefix = conda_prefix,
+    conda_env = conda_env,
     error = TRUE
   )
 
@@ -365,11 +375,12 @@ run_diamond_rbh <- function(proteins,
   }
 
   # Create temp directory
-
   tmp_dir <- tempfile(pattern = "diamond_rbh_")
   dir.create(tmp_dir)
   if (!keep_temp) {
     on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+  } else {
+    cli::cli_inform(c("i" = "Keeping DIAMOND temporary files in {.path {tmp_dir}}"))
   }
 
   # File paths
@@ -377,10 +388,18 @@ run_diamond_rbh <- function(proteins,
   db_path <- file.path(tmp_dir, "db")
   hits_path <- file.path(tmp_dir, "hits.tsv")
 
+  # Get all protein IDs
+  all_protein_ids <- unlist(lapply(proteins$assemblies, function(ps) {
+    ps$proteins$protein_id
+  }), use.names = FALSE)
+  n_proteins <- length(all_protein_ids)
+
   # Write combined FASTA
+  if (!quiet) cli::cli_progress_step("Writing {n_proteins} protein{?s} to a combined FASTA")
   write_combined_fasta(proteins, fasta_path)
 
   # Build database
+  if (!quiet) cli::cli_progress_step("Building DIAMOND database")
   makedb_args <- c(
     "makedb",
     "--in", fasta_path,
@@ -391,14 +410,17 @@ run_diamond_rbh <- function(proteins,
   makedb_result <- processx::run(
     diamond_path,
     makedb_args,
-    error_on_status = FALSE
+    error_on_status = FALSE,
+    timeout = timeout
   )
-
-  if (makedb_result$status != 0) {
-    cli::cli_abort("DIAMOND makedb failed: {makedb_result$stderr}")
-  }
+  check_diamond_result(makedb_result, "makedb", timeout)
 
   # Run blastp
+  if (!quiet) {
+    cli::cli_progress_step(
+      "Running all-vs-all DIAMOND blastp ({mode} mode, {threads} thread{?s})"
+    )
+  }
   blastp_args <- c(
     "blastp",
     "-d", db_path,
@@ -419,23 +441,29 @@ run_diamond_rbh <- function(proteins,
   blastp_result <- processx::run(
     diamond_path,
     blastp_args,
-    error_on_status = FALSE
+    error_on_status = FALSE,
+    timeout = timeout
   )
-
-  if (blastp_result$status != 0) {
-    cli::cli_abort("DIAMOND blastp failed: {blastp_result$stderr}")
-  }
+  check_diamond_result(blastp_result, "blastp", timeout)
 
   # Parse hits with filtering
+  if (!quiet) cli::cli_progress_step("Parsing and filtering hits")
   hits <- parse_diamond_hits(hits_path, min_identity, min_coverage, evalue)
 
-  # Compute RBH
-  rbh_pairs <- compute_rbh(hits)
+  # Every hit ID must be a known protein_id, otherwise assemblies cannot be assigned
+  hit_ids <- unique(c(hits$qseqid, hits$sseqid))
+  unknown_ids <- setdiff(hit_ids, all_protein_ids)
+  if (length(unknown_ids) > 0) {
+    cli::cli_abort(c(
+      "DIAMOND returned {length(unknown_ids)} sequence ID{?s} that do not match any loaded protein_id",
+      "x" = "For example: {.val {utils::head(unknown_ids, 3)}}",
+      "i" = "DIAMOND truncates IDs at the first whitespace. Protein IDs must be single tokens."
+    ))
+  }
 
-  # Get all protein IDs
-  all_protein_ids <- unlist(lapply(proteins$assemblies, function(ps) {
-    ps$proteins$protein_id
-  }))
+  # Compute RBH
+  if (!quiet) cli::cli_progress_step("Finding reciprocal best hits and building orthogroups")
+  rbh_pairs <- compute_rbh(hits)
 
   # Phase 1: Build initial orthogroups from RBH pairs (strict, seed clusters)
   orthogroups_seed <- build_orthogroups_from_rbh(rbh_pairs, all_protein_ids)
@@ -445,6 +473,7 @@ run_diamond_rbh <- function(proteins,
 
   # Phase 2: Expand clusters by adding singletons whose best hit is in a cluster
   # This allows orthogroups to grow beyond pairs
+  if (!quiet) cli::cli_progress_step("Expanding orthogroups with best-hit singletons")
   expanded <- expand_clusters_with_best_hits(
     orthogroups = orthogroups_seed,
     singletons = initial_singletons,
@@ -487,7 +516,7 @@ run_diamond_rbh <- function(proteins,
   }
 
   # Build result
-  new_orthogroup_result(
+  result <- new_orthogroup_result(
     orthogroups = orthogroups,
     method = "diamond_rbh",
     parameters = list(
@@ -499,6 +528,42 @@ run_diamond_rbh <- function(proteins,
     ),
     singletons = singletons
   )
+
+  if (!quiet) {
+    cli::cli_progress_done()
+    cli::cli_inform(c(
+      "v" = "{result$stats$n_orthogroups} orthogroup{?s} containing {result$stats$n_proteins_clustered} protein{?s}; {result$stats$n_singletons} singleton{?s}"
+    ))
+  }
+
+  result
+}
+
+#' Check the result of a DIAMOND run
+#'
+#' Aborts with an informative message when a DIAMOND step timed out or
+#' exited with a non-zero status.
+#'
+#' @param result Result of [processx::run()].
+#' @param step Character name of the DIAMOND subcommand (for messages).
+#' @param timeout Timeout that was applied, in seconds.
+#' @return Invisibly `TRUE` if the run succeeded.
+#' @keywords internal
+check_diamond_result <- function(result, step, timeout) {
+  if (isTRUE(result$timeout)) {
+    cli::cli_abort(c(
+      "DIAMOND {step} did not finish within {timeout} seconds and was stopped",
+      "i" = "DIAMOND hangs on nucleotide input: check that the FASTA files contain protein sequences.",
+      "i" = "For very large data sets, increase {.arg timeout}."
+    ))
+  }
+  if (result$status != 0) {
+    cli::cli_abort(c(
+      "DIAMOND {step} failed (exit status {result$status})",
+      "x" = "{trimws(result$stderr)}"
+    ))
+  }
+  invisible(TRUE)
 }
 
 # Main Dispatcher Function --------------------------------------------------
@@ -506,19 +571,28 @@ run_diamond_rbh <- function(proteins,
 #' Cluster proteins across assemblies
 #'
 #' Groups proteins from a protein_collection into orthogroups using
-#' sequence similarity. Multiple clustering methods are available.
+#' sequence similarity. Currently the only implemented method is
+#' `"diamond_rbh"` (DIAMOND reciprocal best hits with best-hit expansion);
+#' OrthoFinder and MMseqs2 backends are planned.
 #'
 #' @param proteins A protein_collection object
-#' @param method Clustering method: "diamond_rbh" (default), "orthofinder", or "mmseqs2"
+#' @param method Clustering method. Currently only `"diamond_rbh"`.
 #' @param mode Speed/sensitivity trade-off: "fast" (default) or "thorough"
 #' @param min_identity Minimum percent identity threshold (default 30)
 #' @param min_coverage Minimum query coverage threshold (default 50)
 #' @param evalue E-value threshold (default 1e-5)
 #' @param threads Number of CPU threads (default: auto-detect)
-#' @param tool_path Optional explicit path to the clustering tool binary
+#' @param tool_path Optional explicit path to the clustering tool binary.
+#'   `~` is expanded.
 #' @param conda_prefix Optional direct path to a conda/mamba environment containing
 #'   the tool (e.g., "./this_project_env"). Tool is expected at `<prefix>/bin/<tool>`.
-#' @param keep_temp Keep temporary files for debugging (default FALSE)
+#' @param conda_env Optional name of a conda/mamba environment (e.g. `"tools"`),
+#'   looked up under the conda base's `envs/` directory. See [find_tool()].
+#' @param keep_temp Keep temporary files for debugging (default FALSE). The
+#'   directory is reported in a message.
+#' @param timeout Numeric. Maximum seconds allowed for each external tool step
+#'   (default 3600). Prevents a misbehaving tool from hanging the R session.
+#' @param quiet Logical. If `TRUE`, suppress progress messages (default FALSE).
 #'
 #' @return An orthogroup_result object containing:
 #'   - orthogroups: tibble with orthogroup_id, assembly, protein_id
@@ -549,6 +623,9 @@ run_diamond_rbh <- function(proteins,
 #'   proteins,
 #'   conda_prefix = "./this_project_env"
 #' )
+#'
+#' # Use a named conda environment
+#' result <- cluster_proteins(proteins, conda_env = "tools")
 #' }
 cluster_proteins <- function(proteins,
                              method = "diamond_rbh",
@@ -559,18 +636,22 @@ cluster_proteins <- function(proteins,
                              threads = NULL,
                              tool_path = NULL,
                              conda_prefix = NULL,
-                             keep_temp = FALSE) {
+                             conda_env = NULL,
+                             keep_temp = FALSE,
+                             timeout = 3600,
+                             quiet = FALSE) {
   # Validate proteins argument
   if (!inherits(proteins, "protein_collection")) {
     cli::cli_abort("{.arg proteins} must be a {.cls protein_collection} object")
   }
 
   # Validate method
-  valid_methods <- c("diamond_rbh", "orthofinder", "mmseqs2")
-  if (!method %in% valid_methods) {
-    cli::cli_abort(
-      "{.arg method} must be one of: {.val {valid_methods}}"
-    )
+  valid_methods <- c("diamond_rbh")
+  if (!is.character(method) || length(method) != 1 || !method %in% valid_methods) {
+    cli::cli_abort(c(
+      "{.arg method} must be one of: {.val {valid_methods}}",
+      "i" = "OrthoFinder and MMseqs2 backends are planned but not yet implemented."
+    ))
   }
 
   # Validate mode
@@ -581,10 +662,13 @@ cluster_proteins <- function(proteins,
     )
   }
 
-  # Build tool_path from conda_prefix if provided
-  if (!is.null(conda_prefix) && is.null(tool_path)) {
-    tool_path <- file.path(conda_prefix, "bin", "diamond")
+  # Validate timeout
+  if (!is.numeric(timeout) || length(timeout) != 1 || is.na(timeout) || timeout <= 0) {
+    cli::cli_abort("{.arg timeout} must be a single positive number of seconds")
   }
+
+  # Sanity-check the input before launching an external tool
+  validate_collection_for_clustering(proteins)
 
   # Dispatch to appropriate method
   if (method == "diamond_rbh") {
@@ -596,11 +680,55 @@ cluster_proteins <- function(proteins,
       threads = threads,
       mode = mode,
       tool_path = tool_path,
-      keep_temp = keep_temp
+      conda_prefix = conda_prefix,
+      conda_env = conda_env,
+      keep_temp = keep_temp,
+      timeout = timeout,
+      quiet = quiet
     )
-  } else if (method == "orthofinder") {
-    cli::cli_abort("Method {.val orthofinder} is not yet implemented")
-  } else if (method == "mmseqs2") {
-    cli::cli_abort("Method {.val mmseqs2} is not yet implemented")
   }
+}
+
+#' Validate a protein_collection before clustering
+#'
+#' Checks that there is something to cluster, that protein IDs are safe for
+#' external tools, and that sequences look like protein.
+#'
+#' @param proteins A protein_collection object.
+#' @return Invisibly `TRUE`.
+#' @keywords internal
+validate_collection_for_clustering <- function(proteins) {
+  n_total <- sum(proteins$summary$n_proteins)
+  if (n_total == 0) {
+    cli::cli_abort("{.arg proteins} contains no sequences; nothing to cluster")
+  }
+
+  if (proteins$n_assemblies < 2) {
+    cli::cli_warn(c(
+      "Only one assembly in {.arg proteins}",
+      "i" = "Orthogroups are built across assemblies; with a single assembly every protein becomes a singleton."
+    ))
+  }
+
+  for (ps in proteins$assemblies) {
+    ids <- ps$proteins$protein_id
+    if (any(grepl("\\s", ids))) {
+      bad <- ids[grepl("\\s", ids)]
+      cli::cli_abort(c(
+        "Protein IDs in assembly {.val {ps$assembly_name}} contain whitespace: {.val {utils::head(bad, 3)}}",
+        "i" = "DIAMOND truncates IDs at whitespace. Reload with {.fn load_proteins}, which trims headers to the first token."
+      ))
+    }
+
+    nuc_frac <- nucleotide_fraction(ps$proteins$sequence)
+    if (!is.na(nuc_frac) && nuc_frac >= 0.95) {
+      cli::cli_abort(c(
+        "Sequences in assembly {.val {ps$assembly_name}} look like nucleotide, not protein",
+        "x" = "{round(nuc_frac * 100)}% of residues are A/C/G/T/U/N.",
+        "i" = "DIAMOND requires amino acid sequences and hangs on nucleotide input."
+      ))
+    }
+  }
+
+  invisible(TRUE)
 }

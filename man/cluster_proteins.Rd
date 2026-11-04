@@ -14,13 +14,16 @@ cluster_proteins(
   threads = NULL,
   tool_path = NULL,
   conda_prefix = NULL,
-  keep_temp = FALSE
+  conda_env = NULL,
+  keep_temp = FALSE,
+  timeout = 3600,
+  quiet = FALSE
 )
 }
 \arguments{
 \item{proteins}{A protein_collection object}
 
-\item{method}{Clustering method: "diamond_rbh" (default), "orthofinder", or "mmseqs2"}
+\item{method}{Clustering method. Currently only \code{"diamond_rbh"}.}
 
 \item{mode}{Speed/sensitivity trade-off: "fast" (default) or "thorough"}
 
@@ -32,12 +35,22 @@ cluster_proteins(
 
 \item{threads}{Number of CPU threads (default: auto-detect)}
 
-\item{tool_path}{Optional explicit path to the clustering tool binary}
+\item{tool_path}{Optional explicit path to the clustering tool binary.
+\code{~} is expanded.}
 
 \item{conda_prefix}{Optional direct path to a conda/mamba environment containing
 the tool (e.g., "./this_project_env"). Tool is expected at \verb{<prefix>/bin/<tool>}.}
 
-\item{keep_temp}{Keep temporary files for debugging (default FALSE)}
+\item{conda_env}{Optional name of a conda/mamba environment (e.g. \code{"tools"}),
+looked up under the conda base's \verb{envs/} directory. See \code{\link[=find_tool]{find_tool()}}.}
+
+\item{keep_temp}{Keep temporary files for debugging (default FALSE). The
+directory is reported in a message.}
+
+\item{timeout}{Numeric. Maximum seconds allowed for each external tool step
+(default 3600). Prevents a misbehaving tool from hanging the R session.}
+
+\item{quiet}{Logical. If \code{TRUE}, suppress progress messages (default FALSE).}
 }
 \value{
 An orthogroup_result object containing:
@@ -50,7 +63,9 @@ An orthogroup_result object containing:
 }
 \description{
 Groups proteins from a protein_collection into orthogroups using
-sequence similarity. Multiple clustering methods are available.
+sequence similarity. Currently the only implemented method is
+\code{"diamond_rbh"} (DIAMOND reciprocal best hits with best-hit expansion);
+OrthoFinder and MMseqs2 backends are planned.
 }
 \examples{
 \dontrun{
@@ -73,5 +88,8 @@ result <- cluster_proteins(
   proteins,
   conda_prefix = "./this_project_env"
 )
+
+# Use a named conda environment
+result <- cluster_proteins(proteins, conda_env = "tools")
 }
 }

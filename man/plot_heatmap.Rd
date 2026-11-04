@@ -14,6 +14,7 @@ plot_heatmap(
   row_annotation = NULL,
   col_annotation = NULL,
   distance_method = "binary",
+  max_cluster_rows = 5000,
   ...
 )
 }
@@ -40,6 +41,10 @@ Columns become annotation tracks on the top.}
 \item{distance_method}{Character. Distance metric for clustering:
 "binary" (default), "jaccard", or "bray-curtis".}
 
+\item{max_cluster_rows}{Integer. Above this many rows, row clustering is
+done on distinct patterns rather than individual rows (default 5000).
+See "Large matrices".}
+
 \item{...}{Additional arguments passed to ComplexHeatmap::Heatmap().}
 }
 \value{
@@ -49,9 +54,23 @@ A ComplexHeatmap Heatmap object.
 Creates a heatmap visualization of the presence/absence matrix using
 ComplexHeatmap. Rows are orthogroups, columns are assemblies.
 }
-\examples{
-\dontrun{
-plot_heatmap(pa)
-plot_heatmap(pa, cluster_rows = FALSE)
+\section{Large matrices}{
+
+Clustering every row of a matrix with tens of thousands of orthogroups is
+slow and the resulting dendrogram is unreadable. When the matrix has more
+than \code{max_cluster_rows} rows and \code{cluster_rows = TRUE}, rows are instead
+ordered by clustering the distinct presence/absence patterns (at most
+\code{2^n_assemblies}), which gives the same grouping in a fraction of the time
+but draws no row dendrogram. For a readable plot, reduce the matrix first,
+e.g. with \code{build_pa_matrix(..., exclude_singletons = TRUE)} or a
+\code{score_threshold}.
 }
+
+\examples{
+visual_dir <- system.file("testdata", "visual", package = "paneffectR")
+pa <- readRDS(file.path(visual_dir, "pa_binary.rds"))
+ht <- plot_heatmap(pa)
+ComplexHeatmap::draw(ht)
+
+plot_heatmap(pa, cluster_rows = FALSE, distance_method = "jaccard")
 }

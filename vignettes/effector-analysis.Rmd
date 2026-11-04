@@ -256,7 +256,7 @@ plot_dendro(pa, distance_method = "jaccard")
 write.csv(as.data.frame(pa), "effector_presence_absence.csv")
 
 # Export orthogroup membership
-write.csv(clusters$orthogroups, "orthogroup_membership.csv", row_names = FALSE)
+write.csv(clusters$orthogroups, "orthogroup_membership.csv", row.names = FALSE)
 ```
 
 ### Export Singletons

@@ -331,13 +331,21 @@ test_that("parse_diamond_hits handles empty file", {
 
 # Helper to find diamond in project-local env (works from test directory)
 get_diamond_path <- function() {
-  # Try project-local path (from tests/testthat directory)
-  local_path <- test_path("../../this_project_env/bin/diamond")
-  if (file.exists(local_path)) return(local_path)
+  # Explicit override
+  env_path <- Sys.getenv("PANEFFECTR_DIAMOND", unset = "")
+  if (nzchar(env_path) && file.exists(env_path)) return(env_path)
+
+  # Project-local mamba env: inside the package repo, or in the parent dev repo
+  # (paneffectR is a submodule of paneffectR-dev)
+  for (rel in c("../../this_project_env/bin/diamond",
+                "../../../this_project_env/bin/diamond")) {
+    local_path <- test_path(rel)
+    if (file.exists(local_path)) return(normalizePath(local_path))
+  }
 
   # Try system PATH
   sys_path <- Sys.which("diamond")
-  if (nzchar(sys_path)) return(sys_path)
+  if (nzchar(sys_path)) return(unname(sys_path))
 
   NULL
 }
@@ -497,9 +505,10 @@ test_that("cluster_proteins errors for unimplemented methods", {
   ))
   pc <- new_protein_collection(list(ps))
 
+  # Not listed as valid until implemented; the error points to the plan
   expect_error(
     cluster_proteins(pc, method = "orthofinder"),
-    "not yet implemented"
+    "must be one of"
   )
 
   expect_error(

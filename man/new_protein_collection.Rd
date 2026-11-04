@@ -15,3 +15,11 @@ A \code{protein_collection} S3 object.
 \description{
 Container for multiple assemblies.
 }
+\examples{
+ps_a <- new_protein_set("isolate_A",
+  tibble::tibble(protein_id = "A_001", sequence = "MKVLAAGIV"))
+ps_b <- new_protein_set("isolate_B",
+  tibble::tibble(protein_id = "B_001", sequence = "MKVLAAGLV"))
+pc <- new_protein_collection(list(ps_a, ps_b))
+pc
+}

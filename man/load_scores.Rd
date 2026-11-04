@@ -13,5 +13,12 @@ load_scores(path)
 A tibble with score columns.
 }
 \description{
-Parses a scored CSV file from the omnieff pipeline.
+Parses a scored CSV file, such as those produced by the omnieff pipeline.
+The file must have \code{protein_id} and \code{custom_score} columns; see the
+"Score file format" section of \code{\link[=load_proteins]{load_proteins()}} for details.
+}
+\examples{
+csv <- system.file("testdata", "assembly1_scored.csv", package = "paneffectR")
+scores <- load_scores(csv)
+scores[, c("protein_id", "custom_score", "score_rank")]
 }

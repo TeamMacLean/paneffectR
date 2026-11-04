@@ -12,7 +12,11 @@ run_diamond_rbh(
   threads = NULL,
   mode = "fast",
   tool_path = NULL,
-  keep_temp = FALSE
+  conda_prefix = NULL,
+  conda_env = NULL,
+  keep_temp = FALSE,
+  timeout = 3600,
+  quiet = FALSE
 )
 }
 \arguments{
@@ -30,7 +34,15 @@ run_diamond_rbh(
 
 \item{tool_path}{Optional explicit path to diamond binary}
 
+\item{conda_prefix}{Optional path to a conda/mamba environment}
+
+\item{conda_env}{Optional name of a conda/mamba environment}
+
 \item{keep_temp}{Keep temporary files for debugging (default FALSE)}
+
+\item{timeout}{Seconds to allow each DIAMOND step before aborting}
+
+\item{quiet}{Suppress progress messages (default FALSE)}
 }
 \value{
 An orthogroup_result object

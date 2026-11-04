@@ -29,3 +29,13 @@ A \code{pa_matrix} S3 object.
 \description{
 Presence/absence matrix with metadata.
 }
+\examples{
+m <- matrix(c(1L, 1L, 1L, 0L), nrow = 2,
+  dimnames = list(c("OG0001", "OG0002"), c("isolate_A", "isolate_B")))
+pa <- new_pa_matrix(
+  matrix = m,
+  orthogroups = tibble::tibble(orthogroup_id = rownames(m), size = c(2L, 1L)),
+  assemblies = tibble::tibble(assembly_name = colnames(m), n_orthogroups = c(2L, 1L))
+)
+pa
+}

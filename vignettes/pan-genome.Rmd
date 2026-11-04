@@ -279,9 +279,11 @@ singletons_df %>%
 ### Orthogroups Missing from One Assembly
 
 ```{r missing}
-# Which orthogroups are missing from asm_A?
-missing_from_asm_A <- pa$matrix[pa$matrix[, "asm_A"] == 0, , drop = FALSE]
-cat("Orthogroups missing from asm_A:", nrow(missing_from_asm_A), "\n")
+# Which orthogroups are missing from the first assembly?
+# (derive the name from the matrix so this works with any data set)
+first_asm <- colnames(pa$matrix)[1]
+missing_from_first <- pa$matrix[pa$matrix[, first_asm] == 0, , drop = FALSE]
+cat("Orthogroups missing from", first_asm, ":", nrow(missing_from_first), "\n")
 ```
 
 ## Exporting Results

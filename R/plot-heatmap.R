@@ -9,6 +9,16 @@ NULL
 #' Creates a heatmap visualization of the presence/absence matrix using
 #' ComplexHeatmap. Rows are orthogroups, columns are assemblies.
 #'
+#' @section Large matrices:
+#' Clustering every row of a matrix with tens of thousands of orthogroups is
+#' slow and the resulting dendrogram is unreadable. When the matrix has more
+#' than `max_cluster_rows` rows and `cluster_rows = TRUE`, rows are instead
+#' ordered by clustering the distinct presence/absence patterns (at most
+#' `2^n_assemblies`), which gives the same grouping in a fraction of the time
+#' but draws no row dendrogram. For a readable plot, reduce the matrix first,
+#' e.g. with `build_pa_matrix(..., exclude_singletons = TRUE)` or a
+#' `score_threshold`.
+#'
 #' @param pa A `pa_matrix` object.
 #' @param cluster_rows Logical. Whether to cluster rows (default: TRUE).
 #' @param cluster_cols Logical. Whether to cluster columns (default: TRUE).
@@ -22,16 +32,21 @@ NULL
 #'   Columns become annotation tracks on the top.
 #' @param distance_method Character. Distance metric for clustering:
 #'   "binary" (default), "jaccard", or "bray-curtis".
+#' @param max_cluster_rows Integer. Above this many rows, row clustering is
+#'   done on distinct patterns rather than individual rows (default 5000).
+#'   See "Large matrices".
 #' @param ... Additional arguments passed to ComplexHeatmap::Heatmap().
 #'
 #' @return A ComplexHeatmap Heatmap object.
 #' @export
 #'
 #' @examples
-#' \dontrun{
-#' plot_heatmap(pa)
-#' plot_heatmap(pa, cluster_rows = FALSE)
-#' }
+#' visual_dir <- system.file("testdata", "visual", package = "paneffectR")
+#' pa <- readRDS(file.path(visual_dir, "pa_binary.rds"))
+#' ht <- plot_heatmap(pa)
+#' ComplexHeatmap::draw(ht)
+#'
+#' plot_heatmap(pa, cluster_rows = FALSE, distance_method = "jaccard")
 plot_heatmap <- function(pa,
                          cluster_rows = TRUE,
                          cluster_cols = TRUE,
@@ -41,6 +56,7 @@ plot_heatmap <- function(pa,
                          row_annotation = NULL,
                          col_annotation = NULL,
                          distance_method = "binary",
+                         max_cluster_rows = 5000,
                          ...) {
 
   # Validate input
@@ -132,17 +148,30 @@ plot_heatmap <- function(pa,
     m_clean[is.na(m_clean)] <- 0
   }
 
-  if (cluster_rows && n_rows >= 2) {
-    row_dist <- calculate_distance(m_clean, distance_method)
-    cluster_rows <- stats::hclust(row_dist)
+  row_order <- NULL
+  if (isTRUE(cluster_rows) && n_rows >= 2) {
+    if (n_rows > max_cluster_rows) {
+      # Too many rows for a full dendrogram: order by clustering distinct patterns
+      row_order <- pattern_row_order(m_clean, distance_method)
+      n_patterns <- length(unique(row_order$pattern))
+      cli::cli_inform(c(
+        "i" = "{n_rows} rows exceed {.arg max_cluster_rows} ({max_cluster_rows}): rows are ordered by clustering their {n_patterns} distinct presence/absence pattern{?s} and no row dendrogram is drawn.",
+        "i" = "Reduce rows with {.code exclude_singletons = TRUE} or a {.arg score_threshold} in {.fn build_pa_matrix}, or raise {.arg max_cluster_rows}."
+      ))
+      row_order <- row_order$order
+      cluster_rows <- FALSE
+    } else {
+      row_dist <- calculate_distance(m_clean, distance_method)
+      cluster_rows <- stats::hclust(row_dist)
+    }
   }
-  if (cluster_cols && n_cols >= 2) {
+  if (isTRUE(cluster_cols) && n_cols >= 2) {
     col_dist <- calculate_distance(t(m_clean), distance_method)
     cluster_cols <- stats::hclust(col_dist)
   }
 
   # Create heatmap
-  ComplexHeatmap::Heatmap(
+  ht_args <- list(
     pa$matrix,
     cluster_rows = cluster_rows,
     cluster_columns = cluster_cols,
@@ -152,8 +181,40 @@ plot_heatmap <- function(pa,
     name = pa$type,
     na_col = "grey90",
     left_annotation = row_ha,
-    top_annotation = col_ha,
-    ...
+    top_annotation = col_ha
+  )
+  if (!is.null(row_order)) {
+    ht_args$row_order <- row_order
+  }
+  do.call(ComplexHeatmap::Heatmap, c(ht_args, list(...)))
+}
+
+#' Order rows by clustering their distinct presence/absence patterns
+#'
+#' Rows with an identical pattern across columns are grouped; the distinct
+#' patterns are clustered with `calculate_distance()` + `hclust()`, and every
+#' row is placed according to its pattern's position in that clustering.
+#'
+#' @param mat Numeric matrix without NAs (rows are observations).
+#' @param method Distance method passed to `calculate_distance()`.
+#' @return A list with `order` (integer row order) and `pattern` (integer
+#'   pattern index per row, in original row order).
+#' @keywords internal
+pattern_row_order <- function(mat, method) {
+  key <- do.call(paste, c(as.data.frame(mat), sep = ","))
+  pattern <- match(key, unique(key))
+  patterns <- mat[!duplicated(key), , drop = FALSE]
+  rownames(patterns) <- NULL
+
+  if (nrow(patterns) >= 2) {
+    pattern_order <- stats::hclust(calculate_distance(patterns, method))$order
+  } else {
+    pattern_order <- seq_len(nrow(patterns))
+  }
+
+  list(
+    order = order(match(pattern, pattern_order)),
+    pattern = pattern
   )
 }
 
@@ -180,27 +241,14 @@ calculate_distance <- function(mat, method) {
 #' @return A dist object
 #' @keywords internal
 jaccard_dist <- function(mat) {
-  n <- nrow(mat)
-  d <- matrix(0, n, n)
+  b <- (mat > 0) * 1
+  intersection <- b %*% t(b)
+  rs <- rowSums(b)
+  union <- outer(rs, rs, "+") - intersection
 
-  for (i in seq_len(n - 1)) {
-    for (j in (i + 1):n) {
-      a <- mat[i, ]
-      b <- mat[j, ]
-
-      # For binary: intersection = both > 0, union = either > 0
-      intersection <- sum(a > 0 & b > 0)
-      union <- sum(a > 0 | b > 0)
-
-      if (union == 0) {
-        d[i, j] <- 0
-      } else {
-        d[i, j] <- 1 - (intersection / union)
-      }
-      d[j, i] <- d[i, j]
-    }
-  }
-
+  d <- 1 - intersection / union
+  d[union == 0] <- 0
+  dimnames(d) <- NULL
   stats::as.dist(d)
 }
 
@@ -212,26 +260,13 @@ jaccard_dist <- function(mat) {
 #' @return A dist object
 #' @keywords internal
 bray_curtis_dist <- function(mat) {
-  n <- nrow(mat)
-  d <- matrix(0, n, n)
+  numerator <- as.matrix(stats::dist(mat, method = "manhattan"))
+  rs <- rowSums(mat)
+  denominator <- outer(rs, rs, "+")
 
-  for (i in seq_len(n - 1)) {
-    for (j in (i + 1):n) {
-      a <- mat[i, ]
-      b <- mat[j, ]
-
-      numerator <- sum(abs(a - b))
-      denominator <- sum(a + b)
-
-      if (denominator == 0) {
-        d[i, j] <- 0
-      } else {
-        d[i, j] <- numerator / denominator
-      }
-      d[j, i] <- d[i, j]
-    }
-  }
-
+  d <- numerator / denominator
+  d[denominator == 0] <- 0
+  dimnames(d) <- NULL
   stats::as.dist(d)
 }
 

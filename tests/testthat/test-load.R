@@ -19,7 +19,7 @@ test_that("load_fasta returns tibble with protein_id and sequence columns", {
   path <- get_testdata_path("assembly1.faa")
   result <- load_fasta(path)
   expect_s3_class(result, "tbl_df")
-  expect_named(result, c("protein_id", "sequence"))
+  expect_named(result, c("protein_id", "sequence", "description"))
 })
 
 test_that("load_fasta parses correct number of proteins", {
@@ -105,14 +105,15 @@ test_that("load_name_mapping errors on non-existent file", {
 
 test_that("load_proteins loads single assembly from directory", {
   fasta_dir <- get_testdata_path()
-  pc <- load_proteins(fasta_dir, pattern = "assembly1.faa")
+  # single-assembly input warns by design; not the subject of this test
+  pc <- suppressWarnings(load_proteins(fasta_dir, pattern = "assembly1.faa", quiet = TRUE))
   expect_s3_class(pc, "protein_collection")
   expect_equal(pc$n_assemblies, 1)
 })
 
 test_that("load_proteins loads multiple assemblies", {
   fasta_dir <- get_testdata_path()
-  pc <- load_proteins(fasta_dir, pattern = "*.faa")
+  pc <- load_proteins(fasta_dir, pattern = "*.faa", quiet = TRUE)
   expect_s3_class(pc, "protein_collection")
   expect_equal(pc$n_assemblies, 3)
 })
@@ -120,14 +121,14 @@ test_that("load_proteins loads multiple assemblies", {
 test_that("load_proteins merges scores when score_dir provided", {
   fasta_dir <- get_testdata_path()
   score_dir <- get_testdata_path()
-  pc <- load_proteins(fasta_dir, score_dir = score_dir, pattern = "assembly1.faa")
+  pc <- suppressWarnings(load_proteins(fasta_dir, score_dir = score_dir, pattern = "assembly1.faa", quiet = TRUE))
   # Check that score columns are present in proteins
   expect_true("custom_score" %in% names(pc$assemblies[[1]]$proteins))
 })
 
 test_that("load_proteins extracts assembly name from filename", {
   fasta_dir <- get_testdata_path()
-  pc <- load_proteins(fasta_dir, pattern = "assembly1.faa")
+  pc <- suppressWarnings(load_proteins(fasta_dir, pattern = "assembly1.faa", quiet = TRUE))
   expect_equal(pc$assemblies[[1]]$assembly_name, "assembly1")
 })
 

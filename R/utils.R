@@ -17,7 +17,8 @@ NULL
 #' @param conda_prefix Character. Optional direct path to a conda/mamba environment
 #'   (e.g., "./this_project_env"). The tool is expected at `<prefix>/bin/<tool>`.
 #' @param conda_env Character. Optional conda environment name (looked up in
-#'   standard conda envs directory).
+#'   the `envs/` directory of the conda/mamba base found via `CONDA_PREFIX`,
+#'   `MAMBA_ROOT_PREFIX`, `CONDA_EXE`, or common install locations).
 #' @param error Logical. Whether to error if tool not found (default: TRUE).
 #'
 #' @return Character path to the tool, or NULL if not found and error = FALSE.
@@ -35,10 +36,14 @@ find_tool <- function(tool,
                       conda_prefix = NULL,
                       conda_env = NULL,
                       error = TRUE) {
+  # Expand "~" so the returned path is usable by processx (which does not expand it)
+  if (!is.null(tool_path)) tool_path <- path.expand(tool_path)
+  if (!is.null(conda_prefix)) conda_prefix <- path.expand(conda_prefix)
+
   # 1. Explicit path provided
   if (!is.null(tool_path)) {
     if (file.exists(tool_path)) {
-      return(tool_path)
+      return(normalizePath(tool_path))
     }
     if (error) {
       cli::cli_abort("Tool path not found: {.path {tool_path}}")
@@ -50,7 +55,7 @@ find_tool <- function(tool,
   if (!is.null(conda_prefix)) {
     tool_in_prefix <- file.path(conda_prefix, "bin", tool)
     if (file.exists(tool_in_prefix)) {
-      return(tool_in_prefix)
+      return(normalizePath(tool_in_prefix))
     }
     if (error) {
       cli::cli_abort("Tool {.val {tool}} not found in conda prefix: {.path {conda_prefix}}")

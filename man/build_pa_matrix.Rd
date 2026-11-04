@@ -39,9 +39,18 @@ Creates a matrix with orthogroups as rows and assemblies as columns.
 Can produce binary (0/1), score-based, or count matrices.
 }
 \examples{
-\dontrun{
+# Pre-computed clustering of the bundled example data
+visual_dir <- system.file("testdata", "visual", package = "paneffectR")
+clusters <- readRDS(file.path(visual_dir, "clusters_visual.rds"))
+proteins <- readRDS(file.path(visual_dir, "proteins_visual.rds"))
+
 pa <- build_pa_matrix(clusters)
-pa <- build_pa_matrix(clusters, score_threshold = 5.0)
-pa <- build_pa_matrix(clusters, exclude_singletons = TRUE)
-}
+pa
+
+# Drop singletons
+build_pa_matrix(clusters, exclude_singletons = TRUE)
+
+# Keep only orthogroups with at least one high-scoring member
+# (score filtering needs the protein_collection that carries the scores)
+build_pa_matrix(clusters, proteins = proteins, score_threshold = 5.0)
 }

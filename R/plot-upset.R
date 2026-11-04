@@ -21,11 +21,11 @@ NULL
 #' @export
 #'
 #' @examples
-#' \dontrun{
+#' visual_dir <- system.file("testdata", "visual", package = "paneffectR")
+#' pa <- readRDS(file.path(visual_dir, "pa_binary.rds"))
 #' plot_upset(pa)
 #' plot_upset(pa, min_size = 2)
 #' plot_upset(pa, order_by = "degree")
-#' }
 plot_upset <- function(pa,
                        min_size = 1,
                        max_sets = NULL,
@@ -76,8 +76,10 @@ plot_upset <- function(pa,
 
   # Filter by min_size will be handled by UpSetR parameter
 
-  # Create and return UpSet plot object
-  UpSetR::upset(
+  # Create and return UpSet plot object.
+  # UpSetR is unmaintained and uses deprecated ggplot2 idioms; silence only its
+  # lifecycle deprecation warnings so real warnings still surface.
+  suppressWarnings(classes = "lifecycle_warning_deprecated", UpSetR::upset(
     upset_df,
     nsets = ncol(upset_df),
     nintersects = NA,  # Show all intersections
@@ -92,5 +94,5 @@ plot_upset <- function(pa,
     set_size.show = TRUE,
     text.scale = 1.2,
     ...
-  )
+  ))
 }

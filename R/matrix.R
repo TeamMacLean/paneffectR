@@ -23,11 +23,20 @@ NULL
 #' @export
 #'
 #' @examples
-#' \dontrun{
+#' # Pre-computed clustering of the bundled example data
+#' visual_dir <- system.file("testdata", "visual", package = "paneffectR")
+#' clusters <- readRDS(file.path(visual_dir, "clusters_visual.rds"))
+#' proteins <- readRDS(file.path(visual_dir, "proteins_visual.rds"))
+#'
 #' pa <- build_pa_matrix(clusters)
-#' pa <- build_pa_matrix(clusters, score_threshold = 5.0)
-#' pa <- build_pa_matrix(clusters, exclude_singletons = TRUE)
-#' }
+#' pa
+#'
+#' # Drop singletons
+#' build_pa_matrix(clusters, exclude_singletons = TRUE)
+#'
+#' # Keep only orthogroups with at least one high-scoring member
+#' # (score filtering needs the protein_collection that carries the scores)
+#' build_pa_matrix(clusters, proteins = proteins, score_threshold = 5.0)
 build_pa_matrix <- function(orthogroups,
                             proteins = NULL,
                             type = "binary",
@@ -82,14 +91,19 @@ build_pa_matrix <- function(orthogroups,
   if (!is.null(score_threshold)) {
     score_lookup <- build_score_lookup(proteins, score_column)
 
-    # Calculate max score per orthogroup
+    # Calculate max score per orthogroup (NA when no member has a score)
     og_max_scores <- og_tibble |>
-      dplyr::mutate(score = score_lookup[.data$protein_id]) |>
+      dplyr::mutate(score = unname(score_lookup[.data$protein_id])) |>
       dplyr::group_by(.data$orthogroup_id) |>
-      dplyr::summarise(max_score = max(.data$score, na.rm = TRUE), .groups = "drop")
+      dplyr::summarise(
+        max_score = if (all(is.na(.data$score))) NA_real_ else max(.data$score, na.rm = TRUE),
+        .groups = "drop"
+      )
 
-    # Keep only orthogroups meeting threshold
-    passing_ogs <- og_max_scores$orthogroup_id[og_max_scores$max_score >= score_threshold]
+    # Keep only orthogroups meeting threshold (unscored orthogroups are dropped)
+    passing_ogs <- og_max_scores$orthogroup_id[
+      !is.na(og_max_scores$max_score) & og_max_scores$max_score >= score_threshold
+    ]
 
     # Filter orthogroups tibble
     og_tibble <- og_tibble |>
@@ -192,24 +206,6 @@ build_pa_matrix <- function(orthogroups,
   )
 }
 
-#' Filter presence/absence matrix by score
-#'
-#' Removes orthogroups where no member meets the score threshold.
-#'
-#' @param pa A `pa_matrix` object.
-#' @param proteins A `protein_collection` with score data.
-#' @param threshold Numeric. Minimum score to retain an orthogroup.
-#' @param score_column Character. Column name for scores.
-#'
-#' @return A filtered `pa_matrix` object.
-#' @export
-filter_by_score <- function(pa,
-                            proteins,
-                            threshold,
-                            score_column = "custom_score") {
-  cli::cli_abort("Not implemented")
-}
-
 #' Build protein_id to score lookup from protein_collection
 #'
 #' @param proteins A `protein_collection` object.
@@ -224,7 +220,8 @@ build_score_lookup <- function(proteins, score_column) {
   }
 
   # Combine all proteins from all assemblies
-  all_proteins <- do.call(rbind, lapply(proteins$assemblies, function(ps) {
+  # bind_rows() tolerates assemblies that lack score columns (filled with NA)
+  all_proteins <- dplyr::bind_rows(lapply(proteins$assemblies, function(ps) {
     ps$proteins
   }))
 

@@ -10,8 +10,17 @@ load_fasta(path)
 \item{path}{Character. Path to FASTA file.}
 }
 \value{
-A tibble with columns: protein_id, sequence.
+A tibble with columns: protein_id, sequence, description.
 }
 \description{
-Parses a FASTA file into a tibble of protein IDs and sequences.
+Parses a protein FASTA file into a tibble of protein IDs and sequences.
+Headers are split at the first whitespace: the first token becomes
+\code{protein_id} and the remainder is kept as \code{description} (\code{NA} if the header
+had no description). Trailing stop codons (\code{*}) are removed and sequences
+are upper-cased. Gzipped files are supported.
+}
+\examples{
+fasta <- system.file("testdata", "assembly1.faa", package = "paneffectR")
+seqs <- load_fasta(fasta)
+head(seqs)
 }

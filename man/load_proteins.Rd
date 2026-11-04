@@ -8,7 +8,8 @@ load_proteins(
   fasta_dir,
   score_dir = NULL,
   pattern = "*.faa",
-  name_mapping = TRUE
+  name_mapping = TRUE,
+  quiet = FALSE
 )
 }
 \arguments{
@@ -16,9 +17,13 @@ load_proteins(
 
 \item{score_dir}{Character. Optional directory containing score CSV files.}
 
-\item{pattern}{Character. Glob pattern for FASTA files (default: "*.faa").}
+\item{pattern}{Character. Glob pattern for FASTA files (default: "*.faa").
+Use e.g. \code{"*.faa.gz"} for gzipped files or \code{"*.fa*"} for mixed extensions.}
 
-\item{name_mapping}{Logical. Whether to load name mapping files.}
+\item{name_mapping}{Logical. Whether to record name mapping files.}
+
+\item{quiet}{Logical. If \code{FALSE} (default), print a one-line summary of what
+was loaded. Warnings are shown regardless.}
 }
 \value{
 A \code{protein_collection} object.
@@ -27,7 +32,53 @@ A \code{protein_collection} object.
 Main entry point for loading protein data. Discovers and loads FASTA files,
 optionally with associated score and name mapping files.
 }
+\section{File naming conventions}{
+
+Each FASTA file in \code{fasta_dir} is treated as one assembly. The assembly name
+is the file name without its extension (and without a trailing \code{.gz}), so
+\code{isolate_A.faa} and \code{isolate_A.faa.gz} both give the assembly \code{isolate_A}.
+
+Optional companion files are matched by assembly name:
+\itemize{
+\item \verb{<assembly>_scored.csv} in \code{score_dir} - effector prediction scores
+(see below). A warning is issued for every assembly with no score file.
+\item \verb{<assembly>_name_mapping.csv} in \code{fasta_dir} - omnieff name mapping
+(recorded in \code{source_files}, not merged).
+}
+}
+
+\section{FASTA requirements}{
+
+Files must contain protein (amino acid) sequences. Nucleotide input is
+rejected with an error. Headers are split at the first whitespace: the first
+token becomes \code{protein_id} and the remainder (if any) is kept in a
+\code{description} column. For example \verb{>XP_001 cytochrome P450 [P. oryzae]}
+gives \code{protein_id = "XP_001"} and \code{description = "cytochrome P450 [P. oryzae]"}.
+Protein IDs must be unique across all assemblies. Trailing stop codons (\code{*})
+are removed and sequences are upper-cased.
+}
+
+\section{Score file format}{
+
+A score file is a CSV with one row per protein and at least these columns:
+\itemize{
+\item \code{protein_id} - must match the FASTA IDs (first header token) exactly
+\item \code{custom_score} - numeric effector score used by \code{score_threshold} in
+\code{\link[=build_pa_matrix]{build_pa_matrix()}} and by \code{\link[=plot_scores]{plot_scores()}}
+}
+
+The omnieff pipeline also writes \code{assembly}, \code{score_rank}, and many
+per-tool columns; all extra columns are kept. The value \code{RESULTS_MISSING}
+(and empty strings) are read as \code{NA}. A warning is issued if none of the
+IDs in a score file match the FASTA.
+}
+
 \examples{
+# Bundled example data: three assemblies with scores
+data_dir <- system.file("testdata", package = "paneffectR")
+proteins <- load_proteins(fasta_dir = data_dir, score_dir = data_dir)
+proteins
+
 \dontrun{
 # Load from omnieff output
 proteins <- load_proteins(
@@ -35,7 +86,7 @@ proteins <- load_proteins(
   score_dir = "scored/"
 )
 
-# Load just FASTAs
-proteins <- load_proteins(fasta_dir = "my_fastas/")
+# Load gzipped FASTAs without scores
+proteins <- load_proteins(fasta_dir = "my_fastas/", pattern = "*.faa.gz")
 }
 }

@@ -20,7 +20,8 @@ check_tool_installed(
 (e.g., "./this_project_env"). The tool is expected at \verb{<prefix>/bin/<tool>}.}
 
 \item{conda_env}{Character. Optional conda environment name (looked up in
-standard conda envs directory).}
+the \verb{envs/} directory of the conda/mamba base found via \code{CONDA_PREFIX},
+\code{MAMBA_ROOT_PREFIX}, \code{CONDA_EXE}, or common install locations).}
 }
 \value{
 Logical. TRUE if tool is found, FALSE otherwise.
