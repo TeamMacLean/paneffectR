@@ -13,6 +13,8 @@ Step-by-step guides for common analysis scenarios
   paneffectR](https://TeamMacLean.github.io/paneffectR/articles/effector-analysis.md):
 - [Pan-Genome Analysis with
   paneffectR](https://TeamMacLean.github.io/paneffectR/articles/pan-genome.md):
+- [Styling
+  Heatmaps](https://TeamMacLean.github.io/paneffectR/articles/styling-heatmaps.md):
 
 ### Technical
 

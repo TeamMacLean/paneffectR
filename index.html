@@ -28,7 +28,7 @@
 
     <a class="navbar-brand me-2" href="index.html">paneffectR</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -46,6 +46,7 @@
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="articles/effector-analysis.html">Effector Analysis</a></li>
     <li><a class="dropdown-item" href="articles/pan-genome.html">Pan-Genome Analysis</a></li>
+    <li><a class="dropdown-item" href="articles/styling-heatmaps.html">Styling Heatmaps</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Technical</h6></li>
     <li><a class="dropdown-item" href="articles/algorithms.html">Algorithm Deep Dive</a></li>
@@ -174,11 +175,13 @@
 <span><span class="co"># Build presence/absence matrix (filter to high-scoring effectors)</span></span>
 <span><span class="va">pa</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/build_pa_matrix.html">build_pa_matrix</a></span><span class="op">(</span><span class="va">clusters</span>, proteins <span class="op">=</span> <span class="va">proteins</span>, score_threshold <span class="op">=</span> <span class="fl">5.0</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Visualize</span></span>
-<span><span class="va">ht</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/plot_heatmap.html">plot_heatmap</a></span><span class="op">(</span><span class="va">pa</span><span class="op">)</span></span>
-<span><span class="fu">ComplexHeatmap</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/ComplexHeatmap/man/draw-dispatch.html" class="external-link">draw</a></span><span class="op">(</span><span class="va">ht</span><span class="op">)</span></span>
+<span><span class="co"># Visualize: the default heatmap, or split into core / accessory / unique</span></span>
+<span><span class="fu"><a href="reference/plot_heatmap.html">plot_heatmap</a></span><span class="op">(</span><span class="va">pa</span><span class="op">)</span></span>
+<span><span class="fu"><a href="reference/plot_heatmap.html">plot_heatmap</a></span><span class="op">(</span><span class="va">pa</span>, style <span class="op">=</span> <span class="st">"pan"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="reference/plot_upset.html">plot_upset</a></span><span class="op">(</span><span class="va">pa</span>, min_size <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code></pre></div>
+<p><code><a href="reference/plot_heatmap.html">plot_heatmap()</a></code> comes with three styles: <code>"clean"</code> (the default), <code>"pan"</code>, which splits orthogroups into core, accessory and unique blocks, and <code>"mono"</code> for greyscale print. Each is a ComplexHeatmap object you can refine further. See <a href="https://TeamMacLean.github.io/paneffectR/articles/styling-heatmaps.html">Styling Heatmaps</a>.</p>
+<p><img src="reference/figures/README-heatmap-styles.png" alt="The three plot_heatmap styles: clean, pan and mono" width="100%"></p>
 </div>
 <div class="section level2">
 <h2 id="use-cases">Use Cases<a class="anchor" aria-label="anchor" href="#use-cases"></a>
@@ -198,8 +201,8 @@
 <span><span class="va">clusters</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/cluster_proteins.html">cluster_proteins</a></span><span class="op">(</span><span class="va">proteins</span><span class="op">)</span></span>
 <span><span class="va">pa</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/build_pa_matrix.html">build_pa_matrix</a></span><span class="op">(</span><span class="va">clusters</span>, proteins <span class="op">=</span> <span class="va">proteins</span>, score_threshold <span class="op">=</span> <span class="fl">5.0</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Visualize effector repertoires</span></span>
-<span><span class="fu"><a href="reference/plot_heatmap.html">plot_heatmap</a></span><span class="op">(</span><span class="va">pa</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">ComplexHeatmap</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/ComplexHeatmap/man/draw-dispatch.html" class="external-link">draw</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Visualize effector repertoires by core / accessory / unique</span></span>
+<span><span class="fu"><a href="reference/plot_heatmap.html">plot_heatmap</a></span><span class="op">(</span><span class="va">pa</span>, style <span class="op">=</span> <span class="st">"pan"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="general-pan-genome-analysis">General Pan-Genome Analysis<a class="anchor" aria-label="anchor" href="#general-pan-genome-analysis"></a>
@@ -229,6 +232,8 @@
 <li>
 <strong><a href="https://TeamMacLean.github.io/paneffectR/articles/pan-genome.html">Pan-Genome Analysis</a></strong> - General protein comparisons</li>
 <li>
+<strong><a href="https://TeamMacLean.github.io/paneffectR/articles/styling-heatmaps.html">Styling Heatmaps</a></strong> - The three heatmap styles and how to customise them</li>
+<li>
 <strong><a href="https://TeamMacLean.github.io/paneffectR/articles/algorithms.html">Algorithm Deep Dive</a></strong> - Technical details for bioinformaticians</li>
 <li>
 <strong><a href="https://TeamMacLean.github.io/paneffectR/reference/index.html">Function Reference</a></strong> - Complete API documentation</li>
@@ -239,7 +244,7 @@
 </h2>
 <p>If you use paneffectR in your research, please cite:</p>
 <blockquote>
-<p>MacLean, D. (2026). paneffectR: Comparative Genomics of Effector Proteins. R package version 0.1.0. <a href="https://github.com/TeamMacLean/paneffectR" class="external-link uri">https://github.com/TeamMacLean/paneffectR</a></p>
+<p>MacLean, D. (2026). paneffectR: Comparative Genomics of Effector Proteins. R package version 0.1.2. <a href="https://github.com/TeamMacLean/paneffectR" class="external-link uri">https://github.com/TeamMacLean/paneffectR</a></p>
 </blockquote>
 </div>
 <div class="section level2">

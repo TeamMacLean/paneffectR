@@ -11,13 +11,13 @@ Source:
 [`DESCRIPTION`](https://github.com/TeamMacLean/paneffectR/blob/main/DESCRIPTION)
 
 MacLean D (2026). *paneffectR: Comparative Genomics of Effector Proteins
-Across Genome Assemblies*. R package version 0.1.1,
+Across Genome Assemblies*. R package version 0.1.2,
 <https://github.com/TeamMacLean/paneffectR>.
 
     @Manual{,
       title = {paneffectR: Comparative Genomics of Effector Proteins Across Genome Assemblies},
       author = {Dan MacLean},
       year = {2026},
-      note = {R package version 0.1.1},
+      note = {R package version 0.1.2},
       url = {https://github.com/TeamMacLean/paneffectR},
     }

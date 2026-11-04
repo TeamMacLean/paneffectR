@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">paneffectR</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -23,6 +23,7 @@
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/effector-analysis.html">Effector Analysis</a></li>
     <li><a class="dropdown-item" href="../articles/pan-genome.html">Pan-Genome Analysis</a></li>
+    <li><a class="dropdown-item" href="../articles/styling-heatmaps.html">Styling Heatmaps</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Technical</h6></li>
     <li><a class="dropdown-item" href="../articles/algorithms.html">Algorithm Deep Dive</a></li>
@@ -41,6 +42,17 @@
       <small>Source: <a href="https://github.com/TeamMacLean/paneffectR/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.1.2" id="paneffectr-012">paneffectR 0.1.2<a class="anchor" aria-label="anchor" href="#paneffectr-012"></a></h2>
+<div class="section level3">
+<h3 id="heatmap-styles-0-1-2">Heatmap styles<a class="anchor" aria-label="anchor" href="#heatmap-styles-0-1-2"></a></h3>
+<ul><li>
+<code><a href="../reference/plot_heatmap.html">plot_heatmap()</a></code> gains a <code>style</code> argument with three ready-made looks: <code>"clean"</code> (new default: one hue on a light grey grid), <code>"pan"</code> (rows split into Core / Accessory / Unique blocks with a coloured side bar; binary cells take the class colour) and <code>"mono"</code> (black on white for print).</li>
+<li>All styles label the legend “Absent”/“Present” with a meaningful title, draw a light grid between cells on matrices of up to 200 rows, use slimmer dendrograms and angled column labels. Score matrices use an orange ramp so they are not mistaken for presence/absence; count matrices whose maximum is 1 use the binary colours.</li>
+<li>Arguments passed through <code>...</code> to <code><a href="https://rdrr.io/pkg/ComplexHeatmap/man/Heatmap.html" class="external-link">ComplexHeatmap::Heatmap()</a></code> now override the style’s settings instead of erroring on duplicate arguments.</li>
+<li>New vignette, “Styling Heatmaps”, covering the three styles, shared arguments, saving figures and how to go further with ComplexHeatmap. README and the other vignettes use the new styles.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.1" id="paneffectr-011">paneffectR 0.1.1<a class="anchor" aria-label="anchor" href="#paneffectr-011"></a></h2>
 <p>Fixes from a new-user functional test pass (see GitHub issues for details).</p>

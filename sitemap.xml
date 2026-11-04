@@ -6,6 +6,7 @@
 <url><loc>https://TeamMacLean.github.io/paneffectR/articles/getting-started.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/articles/index.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/articles/pan-genome.html</loc></url>
+<url><loc>https://TeamMacLean.github.io/paneffectR/articles/styling-heatmaps.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/authors.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/index.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/news/index.html</loc></url>
@@ -19,6 +20,7 @@
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/categorize_orthogroups.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/check_diamond_result.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/check_tool_installed.html</loc></url>
+<url><loc>https://TeamMacLean.github.io/paneffectR/reference/classify_rows.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/cluster_proteins.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/compute_rbh.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/dendro_to_data.html</loc></url>
@@ -29,6 +31,7 @@
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/find_tool.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/get_singletons.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/get_threads.html</loc></url>
+<url><loc>https://TeamMacLean.github.io/paneffectR/reference/heatmap_style.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/index.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/jaccard_dist.html</loc></url>
 <url><loc>https://TeamMacLean.github.io/paneffectR/reference/load-functions.html</loc></url>

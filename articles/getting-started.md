@@ -207,31 +207,31 @@ cat("Without singletons:", nrow(pa_no_single$matrix), "orthogroups\n")
 
 ### Heatmap
 
-The heatmap shows presence/absence patterns across all assemblies:
+The heatmap shows presence/absence patterns across all assemblies. Rows
+are orthogroups, columns are assemblies, and both are clustered:
 
 ``` r
 
-ht <- plot_heatmap(pa)
-ComplexHeatmap::draw(ht)
+plot_heatmap(pa)
 ```
 
 ![](getting-started_files/figure-html/heatmap-1.png)
 
-Customize with clustering and colors:
+The `"pan"` style splits the orthogroups into **core** (in every
+assembly), **accessory** (in some) and **unique** (in one) blocks:
 
 ``` r
 
-ht <- plot_heatmap(
-  pa,
-  cluster_rows = TRUE,
-  cluster_cols = TRUE,
-  distance_method = "jaccard",
-  color = c("white", "steelblue")
-)
-ComplexHeatmap::draw(ht)
+plot_heatmap(pa, style = "pan")
 ```
 
-![](getting-started_files/figure-html/heatmap-options-1.png)
+![](getting-started_files/figure-html/heatmap-pan-1.png)
+
+There is also a `"mono"` style for greyscale print. Clustering, distance
+method, colours and annotations are all arguments, and the result is a
+ComplexHeatmap object that can be refined further. See
+[`vignette("styling-heatmaps")`](https://TeamMacLean.github.io/paneffectR/articles/styling-heatmaps.md)
+for all of this.
 
 ### UpSet Plot
 

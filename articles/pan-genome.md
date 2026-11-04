@@ -240,21 +240,20 @@ pan_summary
 
 ### Heatmap
 
-The heatmap shows presence (colored) and absence (white) patterns:
+The `"pan"` heatmap style splits orthogroups into core (present in every
+assembly), accessory (present in some) and unique (present in one)
+blocks, which is the pan-genome structure directly:
 
 ``` r
 
-ht <- plot_heatmap(
-  pa,
-  cluster_rows = TRUE,
-  cluster_cols = TRUE,
-  show_row_names = FALSE,
-  color = c("white", "steelblue")
-)
-ComplexHeatmap::draw(ht)
+plot_heatmap(pa, style = "pan")
 ```
 
 ![](pan-genome_files/figure-html/heatmap-1.png)
+
+The default `"clean"` style and the greyscale `"mono"` style are
+described in
+[`vignette("styling-heatmaps")`](https://TeamMacLean.github.io/paneffectR/articles/styling-heatmaps.md).
 
 ### UpSet Plot
 

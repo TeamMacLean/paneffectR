@@ -8,6 +8,7 @@ ComplexHeatmap. Rows are orthogroups, columns are assemblies.
 ``` r
 plot_heatmap(
   pa,
+  style = c("clean", "pan", "mono"),
   cluster_rows = TRUE,
   cluster_cols = TRUE,
   show_row_names = FALSE,
@@ -26,6 +27,11 @@ plot_heatmap(
 - pa:
 
   A `pa_matrix` object.
+
+- style:
+
+  Character. One of `"clean"` (default), `"pan"` or `"mono"`. See
+  "Styles".
 
 - cluster_rows:
 
@@ -46,7 +52,7 @@ plot_heatmap(
 - color:
 
   Character vector or color function. Colors for the heatmap. If NULL,
-  auto-detected based on pa\$type.
+  chosen from `style` and `pa$type`.
 
 - row_annotation:
 
@@ -71,11 +77,51 @@ plot_heatmap(
 
 - ...:
 
-  Additional arguments passed to ComplexHeatmap::Heatmap().
+  Additional arguments passed to ComplexHeatmap::Heatmap(). These take
+  precedence over the style's settings.
 
 ## Value
 
 A ComplexHeatmap Heatmap object.
+
+## Styles
+
+`style` selects a ready-made look. All three use the same layout rules
+(light grid between cells on matrices of up to 200 rows, slim
+dendrograms, angled column labels, legends labelled "Absent"/"Present")
+and differ in colour and in what the rows say:
+
+- `"clean"` (default): one hue on a light grey background. Binary and
+  count matrices are blue; score matrices are orange so that they are
+  never mistaken for presence/absence.
+
+- `"pan"`: rows are split into **Core** (present in every assembly),
+  **Accessory** (present in more than one but not all) and **Unique**
+  (present in exactly one) blocks, each with a coloured side bar. On
+  binary matrices the cells themselves take the class colour; on count
+  and score matrices the cells keep the magnitude ramp and the class is
+  shown by the split. Note that
+  [`plot_pan_structure()`](https://TeamMacLean.github.io/paneffectR/reference/plot_pan_structure.md)
+  further divides Accessory into Accessory and Rare using thresholds;
+  the heatmap does not.
+
+- `"mono"`: black on white with grey grid lines, for print and greyscale
+  figures.
+
+`color` overrides the cell colours of any style. Count matrices whose
+maximum is 1 are drawn with the binary colours.
+
+## Customising further
+
+The return value is a
+[`ComplexHeatmap::Heatmap`](https://rdrr.io/pkg/ComplexHeatmap/man/Heatmap.html)
+object, so anything that package can do applies. Arguments in `...` are
+passed to
+[`ComplexHeatmap::Heatmap()`](https://rdrr.io/pkg/ComplexHeatmap/man/Heatmap.html)
+and override the style's settings, e.g. `column_title = "Effectors"`,
+`rect_gp = grid::gpar(col = NA)` to remove the grid, or
+`column_names_rot = 90`. See
+[`vignette("styling-heatmaps")`](https://TeamMacLean.github.io/paneffectR/articles/styling-heatmaps.md).
 
 ## Large matrices
 
@@ -98,5 +144,10 @@ ht <- plot_heatmap(pa)
 ComplexHeatmap::draw(ht)
 
 
-plot_heatmap(pa, cluster_rows = FALSE, distance_method = "jaccard")
+# Core / accessory / unique blocks
+plot_heatmap(pa, style = "pan")
+
+
+# Greyscale for print, no row clustering
+plot_heatmap(pa, style = "mono", cluster_rows = FALSE, distance_method = "jaccard")
 ```

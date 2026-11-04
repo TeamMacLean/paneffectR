@@ -141,12 +141,22 @@ clusters <- cluster_proteins(proteins, method = "diamond_rbh")
 # Build presence/absence matrix (filter to high-scoring effectors)
 pa <- build_pa_matrix(clusters, proteins = proteins, score_threshold = 5.0)
 
-# Visualize
-ht <- plot_heatmap(pa)
-ComplexHeatmap::draw(ht)
+# Visualize: the default heatmap, or split into core / accessory / unique
+plot_heatmap(pa)
+plot_heatmap(pa, style = "pan")
 
 plot_upset(pa, min_size = 2)
 ```
+
+[`plot_heatmap()`](https://TeamMacLean.github.io/paneffectR/reference/plot_heatmap.md)
+comes with three styles: `"clean"` (the default), `"pan"`, which splits
+orthogroups into core, accessory and unique blocks, and `"mono"` for
+greyscale print. Each is a ComplexHeatmap object you can refine further.
+See [Styling
+Heatmaps](https://TeamMacLean.github.io/paneffectR/articles/styling-heatmaps.html).
+
+![The three plot_heatmap styles: clean, pan and
+mono](reference/figures/README-heatmap-styles.png)
 
 ## Use Cases
 
@@ -168,8 +178,8 @@ proteins <- load_proteins(
 clusters <- cluster_proteins(proteins)
 pa <- build_pa_matrix(clusters, proteins = proteins, score_threshold = 5.0)
 
-# Visualize effector repertoires
-plot_heatmap(pa) |> ComplexHeatmap::draw()
+# Visualize effector repertoires by core / accessory / unique
+plot_heatmap(pa, style = "pan")
 ```
 
 ### General Pan-Genome Analysis
@@ -201,6 +211,9 @@ plot_dendro(pa, distance_method = "jaccard")
 - **[Pan-Genome
   Analysis](https://TeamMacLean.github.io/paneffectR/articles/pan-genome.html)** -
   General protein comparisons
+- **[Styling
+  Heatmaps](https://TeamMacLean.github.io/paneffectR/articles/styling-heatmaps.html)** -
+  The three heatmap styles and how to customise them
 - **[Algorithm Deep
   Dive](https://TeamMacLean.github.io/paneffectR/articles/algorithms.html)** -
   Technical details for bioinformaticians
@@ -213,7 +226,7 @@ plot_dendro(pa, distance_method = "jaccard")
 If you use paneffectR in your research, please cite:
 
 > MacLean, D. (2026). paneffectR: Comparative Genomics of Effector
-> Proteins. R package version 0.1.0.
+> Proteins. R package version 0.1.2.
 > <https://github.com/TeamMacLean/paneffectR>
 
 ## License
@@ -320,6 +333,8 @@ Step-by-step guides for common analysis scenarios
   paneffectR](https://TeamMacLean.github.io/paneffectR/articles/effector-analysis.md):
 - [Pan-Genome Analysis with
   paneffectR](https://TeamMacLean.github.io/paneffectR/articles/pan-genome.md):
+- [Styling
+  Heatmaps](https://TeamMacLean.github.io/paneffectR/articles/styling-heatmaps.md):
 
 ### Technical
 

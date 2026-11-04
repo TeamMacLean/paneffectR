@@ -9,7 +9,7 @@ ComplexHeatmap. Rows are orthogroups, columns are assemblies."><meta property="o
 
     <a class="navbar-brand me-2" href="../index.html">paneffectR</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -25,6 +25,7 @@ ComplexHeatmap. Rows are orthogroups, columns are assemblies."><meta property="o
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/effector-analysis.html">Effector Analysis</a></li>
     <li><a class="dropdown-item" href="../articles/pan-genome.html">Pan-Genome Analysis</a></li>
+    <li><a class="dropdown-item" href="../articles/styling-heatmaps.html">Styling Heatmaps</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Technical</h6></li>
     <li><a class="dropdown-item" href="../articles/algorithms.html">Algorithm Deep Dive</a></li>
@@ -53,6 +54,7 @@ ComplexHeatmap. Rows are orthogroups, columns are assemblies.</p>
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">plot_heatmap</span><span class="op">(</span></span>
 <span>  <span class="va">pa</span>,</span>
+<span>  style <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"clean"</span>, <span class="st">"pan"</span>, <span class="st">"mono"</span><span class="op">)</span>,</span>
 <span>  cluster_rows <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  cluster_cols <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  show_row_names <span class="op">=</span> <span class="cn">FALSE</span>,</span>
@@ -74,6 +76,11 @@ ComplexHeatmap. Rows are orthogroups, columns are assemblies.</p>
 <dd><p>A <code>pa_matrix</code> object.</p></dd>
 
 
+<dt id="arg-style">style<a class="anchor" aria-label="anchor" href="#arg-style"></a></dt>
+<dd><p>Character. One of <code>"clean"</code> (default), <code>"pan"</code> or <code>"mono"</code>.
+See "Styles".</p></dd>
+
+
 <dt id="arg-cluster-rows">cluster_rows<a class="anchor" aria-label="anchor" href="#arg-cluster-rows"></a></dt>
 <dd><p>Logical. Whether to cluster rows (default: TRUE).</p></dd>
 
@@ -92,7 +99,7 @@ ComplexHeatmap. Rows are orthogroups, columns are assemblies.</p>
 
 <dt id="arg-color">color<a class="anchor" aria-label="anchor" href="#arg-color"></a></dt>
 <dd><p>Character vector or color function. Colors for the heatmap.
-If NULL, auto-detected based on pa$type.</p></dd>
+If NULL, chosen from <code>style</code> and <code>pa$type</code>.</p></dd>
 
 
 <dt id="arg-row-annotation">row_annotation<a class="anchor" aria-label="anchor" href="#arg-row-annotation"></a></dt>
@@ -117,12 +124,45 @@ See "Large matrices".</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Additional arguments passed to ComplexHeatmap::Heatmap().</p></dd>
+<dd><p>Additional arguments passed to ComplexHeatmap::Heatmap(). These
+take precedence over the style's settings.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A ComplexHeatmap Heatmap object.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="styles">Styles<a class="anchor" aria-label="anchor" href="#styles"></a></h2>
+
+
+<p><code>style</code> selects a ready-made look. All three use the same layout rules
+(light grid between cells on matrices of up to 200 rows, slim dendrograms,
+angled column labels, legends labelled "Absent"/"Present") and differ in
+colour and in what the rows say:</p><ul><li><p><code>"clean"</code> (default): one hue on a light grey background. Binary and count
+matrices are blue; score matrices are orange so that they are never
+mistaken for presence/absence.</p></li>
+<li><p><code>"pan"</code>: rows are split into <strong>Core</strong> (present in every assembly),
+<strong>Accessory</strong> (present in more than one but not all) and <strong>Unique</strong>
+(present in exactly one) blocks, each with a coloured side bar. On binary
+matrices the cells themselves take the class colour; on count and score
+matrices the cells keep the magnitude ramp and the class is shown by the
+split. Note that <code><a href="plot_pan_structure.html">plot_pan_structure()</a></code> further divides Accessory into
+Accessory and Rare using thresholds; the heatmap does not.</p></li>
+<li><p><code>"mono"</code>: black on white with grey grid lines, for print and greyscale
+figures.</p></li>
+</ul><p><code>color</code> overrides the cell colours of any style. Count matrices whose
+maximum is 1 are drawn with the binary colours.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="customising-further">Customising further<a class="anchor" aria-label="anchor" href="#customising-further"></a></h2>
+
+
+<p>The return value is a <code><a href="https://rdrr.io/pkg/ComplexHeatmap/man/Heatmap.html" class="external-link">ComplexHeatmap::Heatmap</a></code> object, so anything that
+package can do applies. Arguments in <code>...</code> are passed to
+<code><a href="https://rdrr.io/pkg/ComplexHeatmap/man/Heatmap.html" class="external-link">ComplexHeatmap::Heatmap()</a></code> and override the style's settings, e.g.
+<code>column_title = "Effectors"</code>, <code>rect_gp = grid::gpar(col = NA)</code> to remove
+the grid, or <code>column_names_rot = 90</code>. See <code><a href="../articles/styling-heatmaps.html">vignette("styling-heatmaps")</a></code>.</p>
     </div>
     <div class="section level2">
     <h2 id="large-matrices">Large matrices<a class="anchor" aria-label="anchor" href="#large-matrices"></a></h2>
@@ -146,8 +186,13 @@ e.g. with <code>build_pa_matrix(..., exclude_singletons = TRUE)</code> or a
 <span class="r-in"><span><span class="fu">ComplexHeatmap</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/ComplexHeatmap/man/draw-dispatch.html" class="external-link">draw</a></span><span class="op">(</span><span class="va">ht</span><span class="op">)</span></span></span>
 <span class="r-plt img"><img src="plot_heatmap-1.png" alt="" width="1050" height="750"></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="fu">plot_heatmap</span><span class="op">(</span><span class="va">pa</span>, cluster_rows <span class="op">=</span> <span class="cn">FALSE</span>, distance_method <span class="op">=</span> <span class="st">"jaccard"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># Core / accessory / unique blocks</span></span></span>
+<span class="r-in"><span><span class="fu">plot_heatmap</span><span class="op">(</span><span class="va">pa</span>, style <span class="op">=</span> <span class="st">"pan"</span><span class="op">)</span></span></span>
 <span class="r-plt img"><img src="plot_heatmap-2.png" alt="" width="1050" height="750"></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Greyscale for print, no row clustering</span></span></span>
+<span class="r-in"><span><span class="fu">plot_heatmap</span><span class="op">(</span><span class="va">pa</span>, style <span class="op">=</span> <span class="st">"mono"</span>, cluster_rows <span class="op">=</span> <span class="cn">FALSE</span>, distance_method <span class="op">=</span> <span class="st">"jaccard"</span><span class="op">)</span></span></span>
+<span class="r-plt img"><img src="plot_heatmap-3.png" alt="" width="1050" height="750"></span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -25,7 +25,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">paneffectR</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -43,6 +43,7 @@
     <li><h6 class="dropdown-header" data-toc-skip>Workflows</h6></li>
     <li><a class="dropdown-item" href="../articles/effector-analysis.html">Effector Analysis</a></li>
     <li><a class="dropdown-item" href="../articles/pan-genome.html">Pan-Genome Analysis</a></li>
+    <li><a class="dropdown-item" href="../articles/styling-heatmaps.html">Styling Heatmaps</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Technical</h6></li>
     <li><a class="dropdown-item" href="../articles/algorithms.html">Algorithm Deep Dive</a></li>
@@ -301,18 +302,15 @@ assemblies:</p>
 <div class="section level3">
 <h3 id="heatmap">Heatmap<a class="anchor" aria-label="anchor" href="#heatmap"></a>
 </h3>
-<p>The heatmap shows presence (colored) and absence (white)
-patterns:</p>
+<p>The <code>"pan"</code> heatmap style splits orthogroups into core
+(present in every assembly), accessory (present in some) and unique
+(present in one) blocks, which is the pan-genome structure directly:</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">ht</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plot_heatmap.html">plot_heatmap</a></span><span class="op">(</span></span>
-<span>  <span class="va">pa</span>,</span>
-<span>  cluster_rows <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  cluster_cols <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  show_row_names <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  color <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"white"</span>, <span class="st">"steelblue"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span><span class="fu">ComplexHeatmap</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/ComplexHeatmap/man/draw-dispatch.html" class="external-link">draw</a></span><span class="op">(</span><span class="va">ht</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_heatmap.html">plot_heatmap</a></span><span class="op">(</span><span class="va">pa</span>, style <span class="op">=</span> <span class="st">"pan"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="pan-genome_files/figure-html/heatmap-1.png" class="r-plt" alt="" width="1050"></p>
+<p>The default <code>"clean"</code> style and the greyscale
+<code>"mono"</code> style are described in
+<code><a href="../articles/styling-heatmaps.html">vignette("styling-heatmaps")</a></code>.</p>
 </div>
 <div class="section level3">
 <h3 id="upset-plot">UpSet Plot<a class="anchor" aria-label="anchor" href="#upset-plot"></a>
